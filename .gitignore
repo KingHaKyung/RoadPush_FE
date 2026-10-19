@@ -1,0 +1,11 @@
+node_modules
+dist
+.env
+.env.local
+*.log
+
+# 표준노드링크 원본과 생성 타일 (npm run nodelink로 다시 만듦)
+data/raw/
+public/nodelink/
+[[]*NODELINKDATA.zip
+*.tsbuildinfo
