@@ -84,7 +84,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
 
       <div className="mapwrap">
         <RiskMap statusOf={statusOf} selected={selSeg} onSelect={(id) => selectSeg(id)} focusKey={focusKey} />
-        <div className="maptools"><div className="box">{PASS_KEYS.map((p) => <Pill key={p} pass={p} />)}<span className="small">가는 선: 관측 없는 링크</span></div></div>
+        <div className="maptools"><div className="box">{PASS_KEYS.map((p) => <Pill key={p} pass={p} />)}<span className="small">흰 도로: 관측 없는 링크</span></div></div>
         <div className="mapfoot">국토교통부 표준노드링크(2026-10-14) · {national ? `전국 링크 ${national.links.toLocaleString()} · 노드 ${national.nodes.toLocaleString()}` : `링크 ${SEGMENTS.length} · 노드 ${Object.keys(NODES).length}`} · 관측 구간 {shownCount}</div>
       </div>
 

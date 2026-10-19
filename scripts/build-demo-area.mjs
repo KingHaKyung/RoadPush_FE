@@ -9,6 +9,8 @@ const SRC = process.argv[2] ?? 'data/raw';
 const AREA = '성남시 분당구 서현·수내 일대';
 const BOUNDS = { south: 37.3745, west: 127.108, north: 37.3905, east: 127.134 };
 const GEOJSON = 'data/roadpush_seongnam_nodelink.geojson';
+/** 지도에 표시할 곳: [노드 이름, 표시 이름] */
+const LANDMARKS = [['서현역(수인분당선)', '서현역'], ['수내역1번출구', '수내역'], ['분당구청사거리', '분당구청']];
 /** 장비 이름 앞부분 → 배정할 쪽 (서현역 동쪽, 수내역 서쪽) */
 const DEV_SIDE = { 서현: 'east', 수내: 'west' };
 
@@ -106,6 +108,9 @@ export const AREA_NAME = ${JSON.stringify(AREA)};
 export const MAP_W = ${W};
 export const MAP_H = ${H};
 export const MAP_BOUNDS = ${JSON.stringify(BOUNDS).replace(/"(\w+)":/g, '$1: ').replace(/,/g, ', ').replace('{', '{ ').replace('}', ' }')};
+
+/** 지도에 표시할 곳: [노드 이름, 표시 이름] */
+export const LANDMARKS: [string, string][] = ${JSON.stringify(LANDMARKS)};
 
 export const NODES: NodeMap = ${JSON.stringify(nodes)};
 

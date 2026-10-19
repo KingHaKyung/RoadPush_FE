@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type PointerEvent, type WheelEvent } from 'react';
-import { AREA_NAME, MAP_H, MAP_W, NODES, SEGMENTS } from '../../data/nodelink';
+import { AREA_NAME, LANDMARKS, MAP_H, MAP_W, NODES, SEGMENTS } from '../../data/nodelink';
 import { PASS } from '../../lib/constants';
 import { midOf, segById } from '../../lib/segments';
 import type { Pass } from '../../types';
@@ -8,7 +8,6 @@ import { useEffect } from 'react';
 
 const ROAD_W: Record<string, number> = { '103': 7, '104': 5, '105': 4.5, '106': 4.5, '107': 3.2, '108': 2.6 };
 const pts = (p: [number, number][]) => p.map((q) => q.join(',')).join(' ');
-const STATIONS: [string, string][] = [['서현역(수인분당선)', '서현역'], ['수내역1번출구', '수내역'], ['분당구청사거리', '분당구청']];
 
 function MidShape({ p, x, y, k }: { p: Pass; x: number; y: number; k: number }) {
   if (p === 'passable') return null;
@@ -100,7 +99,7 @@ export function SvgRiskMap({ statusOf, selected, onSelect, focusKey }: RiskMapPr
         {labels.map((l) => (
           <text key={l.n} className="slabel" x={l.x} y={l.y - 6 * k} textAnchor="middle" transform={`rotate(${l.a} ${l.x} ${l.y})`} style={{ fontSize: 12 * k, strokeWidth: 4 * k }}>{l.n}</text>
         ))}
-        {STATIONS.map(([nm, lab]) => {
+        {LANDMARKS.map(([nm, lab]) => {
           const e = Object.values(NODES).find((n) => n[2] === nm); if (!e) return null;
           return <g key={nm}><circle className="station" cx={e[0]} cy={e[1]} r={6 * k} style={{ strokeWidth: 2.5 * k }} />
             <text className="slabel" x={e[0] + 9 * k} y={e[1] + 14 * k} style={{ fontSize: 12.5 * k, strokeWidth: 4 * k, fontWeight: 700 }}>{lab}</text></g>;
