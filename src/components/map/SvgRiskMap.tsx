@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type PointerEvent, type WheelEvent } from 'react';
-import { MAP_H, MAP_W, NODES, SEGMENTS } from '../../data/nodelink';
+import { AREA_NAME, MAP_H, MAP_W, NODES, SEGMENTS } from '../../data/nodelink';
 import { PASS } from '../../lib/constants';
 import { midOf, segById } from '../../lib/segments';
 import type { Pass } from '../../types';
@@ -8,7 +8,7 @@ import { useEffect } from 'react';
 
 const ROAD_W: Record<string, number> = { '103': 7, '104': 5, '105': 4.5, '106': 4.5, '107': 3.2, '108': 2.6 };
 const pts = (p: [number, number][]) => p.map((q) => q.join(',')).join(' ');
-const STATIONS: [string, string][] = [['신촌역(서울2호선)', '신촌역'], ['이대역앞교차로', '이대역'], ['신촌역(경의중앙선)', '신촌역(경의중앙선)'], ['연세대앞교차로', '연세대앞']];
+const STATIONS: [string, string][] = [['서현역(수인분당선)', '서현역'], ['수내역1번출구', '수내역'], ['분당구청사거리', '분당구청']];
 
 function MidShape({ p, x, y, k }: { p: Pass; x: number; y: number; k: number }) {
   if (p === 'passable') return null;
@@ -75,7 +75,7 @@ export function SvgRiskMap({ statusOf, selected, onSelect, focusKey }: RiskMapPr
   return (
     <>
       <svg ref={svgRef} className="map" viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`} preserveAspectRatio="xMidYMid meet" role="img"
-        aria-label="신촌·이대 일대 표준노드링크 위험 구간 지도" onWheel={onWheel} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}>
+        aria-label={`${AREA_NAME} 표준노드링크 위험 구간 지도`} onWheel={onWheel} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}>
         <rect x={-2000} y={-2000} width={MAP_W + 4000} height={MAP_H + 4000} style={{ fill: 'var(--block)' }} />
         <g fill="none" strokeLinecap="round" strokeLinejoin="round">
           {SEGMENTS.map((sg) => <polyline key={'e' + sg.id} points={pts(sg.pts)} stroke="var(--road-edge)" strokeWidth={(ROAD_W[sg.rank] ?? 3) + 2.4} />)}

@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { KakaoRiskMap } from './KakaoRiskMap';
 import { SvgRiskMap } from './SvgRiskMap';
 import type { RiskMapProps } from './types';
+import { VWorldRiskMap } from './VWorldRiskMap';
 
-const KAKAO_KEY = (import.meta.env.VITE_KAKAO_MAP_KEY as string | undefined)?.trim();
+const VWORLD_KEY = (import.meta.env.VITE_VWORLD_KEY as string | undefined)?.trim();
 
-/** 카카오맵 키가 있으면 실제 지도, 없거나 불러오지 못하면 표준노드링크 약도 */
+/** 브이월드 키가 있으면 실제 지도, 없거나 불러오지 못하면 표준노드링크 약도 */
 export function RiskMap(props: RiskMapProps) {
   const [error, setError] = useState<string | null>(null);
-  if (KAKAO_KEY && !error) return <KakaoRiskMap {...props} apiKey={KAKAO_KEY} onError={setError} />;
+  if (VWORLD_KEY && !error) return <VWorldRiskMap {...props} apiKey={VWORLD_KEY} onError={setError} />;
   return (
     <>
       <SvgRiskMap {...props} />

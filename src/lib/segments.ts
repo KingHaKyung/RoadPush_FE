@@ -2,12 +2,12 @@ import { NODES, SEGMENTS } from '../data/nodelink';
 import type { Filters, Observation, Pass, Period, Segment } from '../types';
 import { DEMO_NOW } from './constants';
 
-/** 신촌 예시 구간 + 지도에서 불러온 전국 타일 구간 */
+/** 예시 지역 구간 + 지도에서 불러온 전국 타일 구간 */
 export const segById = new Map(SEGMENTS.map((s) => [s.id, s]));
 const tileNodeNames = new Map<string, string>();
 export const nodeName = (id: string) => NODES[id]?.[2] ?? tileNodeNames.get(id) ?? (tileNodeNames.size ? '중간 지점' : '구역 밖 노드');
 
-/** 타일 구간을 등록하고, 신촌 예시 데이터에 이미 있는 링크는 빼고 돌려준다 */
+/** 타일 구간을 등록하고, 예시 지역 데이터에 이미 있는 링크는 빼고 돌려준다 */
 export function registerSegments(segs: Segment[], names: Record<string, string>): Segment[] {
   for (const [id, nm] of Object.entries(names)) tileNodeNames.set(id, nm);
   const fresh: Segment[] = [];
@@ -23,7 +23,7 @@ export function registerSegments(segs: Segment[], names: Record<string, string>)
 export function segPlace(segId: string): string {
   const sg = segById.get(segId);
   if (!sg) return '알 수 없는 구간';
-  const names = [NODES[sg.a]?.[2], NODES[sg.b]?.[2]].filter((n): n is string => !!n && n !== '중간 지점');
+  const names = [NODES[sg.a]?.[2], NODES[sg.b]?.[2]].filter((n): n is string => !!n && n !== '중간 지점' && n !== '속성변화점');
   const good = names.find((n) => !/[0-9]/.test(n)) ?? names[0];
   return good ? `${sg.road} · ${good} 부근` : sg.road;
 }

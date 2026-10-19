@@ -31,7 +31,7 @@ function loadTile(key: string, ix: Index): Promise<Segment[]> {
       let y = Math.round(ty * ix.tile * ix.q), x = Math.round(tx * ix.tile * ix.q);
       const ll: [number, number][] = [];
       for (let i = 0; i < c.length; i += 2) { y += c[i]; x += c[i + 1]; ll.push([y / ix.q, x / ix.q]); }
-      return { id, links: [id], a, b, road: road || '이름 없는 도로', rank, lanes, spd, len, pts: [], ll };
+      return { id, links: [id], a, b, road: !road || road === '-' ? '이름 없는 도로' : road, rank, lanes, spd, len, pts: [], ll };
     });
     return registerSegments(segs, n);
   });

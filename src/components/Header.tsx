@@ -12,7 +12,7 @@ export function Header({ tab, holdCount }: { tab: Tab; holdCount: number }) {
       <a className="skip" href="#content">본문 바로가기</a>
       <header className="top">
         <div className="top-in">
-          <div className="brand"><b>RoadPush</b><span className="area">서울 서대문구</span></div>
+          <div className="brand"><b>RoadPush</b><span className="area">경기 성남시</span></div>
           <nav className="tabs" aria-label="주 메뉴">
             {TABS.map((t) => (
               <a key={t.id} href={`#${t.id}`} aria-current={tab === t.id ? 'page' : undefined}>

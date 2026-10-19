@@ -18,24 +18,27 @@ Node.js 18 이상이 필요합니다.
 
 ## 지도 API 키 넣기
 
+배경지도는 [브이월드](https://www.vworld.kr) 회색 지도(white)를 Leaflet으로 띄웁니다.
+
 1. `.env.example`을 복사해 `.env`를 만듭니다.
-2. `VITE_KAKAO_MAP_KEY=`에 카카오 **JavaScript 키**를 넣습니다.
-3. [카카오 개발자](https://developers.kakao.com) → 내 애플리케이션 → 플랫폼 → **Web 사이트 도메인**에
-   `http://localhost:5173`을 등록합니다. (등록하지 않으면 지도가 뜨지 않습니다)
-4. `npm run dev`를 다시 실행합니다.
+2. 브이월드 → 오픈API → 인증키 발급에서 서비스 URL을 `http://localhost:5173`으로 등록하고,
+   받은 키를 `VITE_VWORLD_KEY=`에 넣습니다. (`VITE_`로 시작해야 브라우저 코드에서 읽힙니다)
+3. `npm run dev`를 다시 실행합니다.
 
-키가 없거나 지도를 불러오지 못하면 표준노드링크 약도(SVG)로 자동 전환됩니다.
-약도는 신촌·이대 일대만 그립니다. 전국 도로망은 카카오 지도에서만 보입니다.
+키가 없거나 배경지도를 불러오지 못하면 표준노드링크 약도(SVG)로 자동 전환됩니다.
+약도는 예시 지역(성남시 분당구 서현·수내 일대)만 그립니다. 전국 도로망은 브이월드 지도에서만 보입니다.
 
-## 전국 표준노드링크 타일 만들기
+## 표준노드링크 데이터 만들기
 
-카카오 지도는 전국 링크(약 156만 개)를 격자 타일(0.05°, 약 5km)로 나눠 화면에 보이는 곳만 불러옵니다.
+국토교통부 표준노드링크 zip을 `data/raw/`에 풉니다 (`MOCT_LINK.*`, `MOCT_NODE.*`).
 
-1. 국토교통부 표준노드링크 zip을 `data/raw/`에 풉니다 (`MOCT_LINK.*`, `MOCT_NODE.*`).
-2. `npm run nodelink` → `public/nodelink/`에 `index.json`과 타일 약 4,300개(약 200MB)가 생깁니다.
-3. 축척 4 이하에서는 모든 도로를, 축척 5에서는 지방도 이상만 그립니다. 그보다 축소하면 관측 구간만 보입니다.
+- **전국 타일**: `npm run nodelink` → `public/nodelink/`에 `index.json`과 타일 약 4,300개(약 200MB).
+  전국 링크(약 156만 개)를 격자(0.05°, 약 5km)로 나눠 화면에 보이는 곳만 불러옵니다.
+  줌 15 이상은 모든 도로, 줌 14는 지방도 이상만 그리고, 더 축소하면 관측 구간만 보입니다.
+- **예시 지역**: `npm run demo-area` → `src/data/nodelink.ts`와 GeoJSON을 다시 만들고
+  예시 관측을 그 지역 링크에 다시 배정합니다. 범위는 `scripts/build-demo-area.mjs`의 `BOUNDS`.
 
-`data/raw/`와 `public/nodelink/`는 용량이 커서 `.gitignore`에 넣었습니다. 배포할 때는 빌드 전에 2번을 실행해야 합니다.
+`data/raw/`와 `public/nodelink/`는 용량이 커서 `.gitignore`에 넣었습니다. 배포할 때는 빌드 전에 `npm run nodelink`를 실행해야 합니다.
 `.env`는 `.gitignore`에 들어 있어 Git에 올라가지 않습니다.
 
 ## 화면
@@ -54,14 +57,15 @@ AI 판정과 사람 판정·처리 기록은 따로 저장합니다(지금은 �
 src/
   App.tsx                 화면 전환(#map #list #hold)·전역 상태
   types.ts                관측·구간·필터 타입
-  data/nodelink.ts        표준노드링크(신촌·이대 일대) 링크 354·노드 254
+  data/nodelink.ts        표준노드링크(성남시 분당구 서현·수내 일대) 링크 759·노드 493
   data/observations.ts    예시 관측
   lib/useObservations.ts  관측 + 사람 판단 기록 (백엔드 연결 시 여기서 API 호출)
   lib/segments.ts         구간 최신 관측·필터 계산
   api/client.ts           FastAPI 응답 타입(마스터 문서 4.4)과 호출 자리
-  components/map/         RiskMap(전환) · KakaoRiskMap · SvgRiskMap
+  components/map/         RiskMap(전환) · VWorldRiskMap · SvgRiskMap
   components/             MapView · ListView · HoldView · ObservationDetail · FrameView …
-data/roadpush_sinchon_nodelink.geojson   같은 범위의 GeoJSON(WGS84)
+data/roadpush_seongnam_nodelink.geojson  같은 범위의 GeoJSON(WGS84)
+scripts/                                 표준노드링크 SHP → 타일·예시 지역 변환
 public/fonts/                            Pretendard GOV (SIL OFL)
 ```
 
@@ -74,6 +78,7 @@ public/fonts/                            Pretendard GOV (SIL OFL)
 
 ## 데이터 출처
 
-- 도로 링크·노드: 국토교통부 표준노드링크(2026-10-14 배포)에서 경도 126.930~126.952,
-  위도 37.5515~37.5665 범위만 잘라 좌표계(중부원점 TM → WGS84)를 바꿨습니다.
+- 도로 링크·노드: 국토교통부 표준노드링크(2026-10-14 배포). 좌표계를 중부원점 TM에서 WGS84로 바꿨고,
+  예시 지역은 경도 127.108~127.134, 위도 37.3745~37.3905 범위입니다.
+- 배경지도: 브이월드(국토교통부 공간정보 오픈플랫폼) WMTS
 - 서체: Pretendard GOV (KRDS 배포본, SIL Open Font License)
