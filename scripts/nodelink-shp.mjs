@@ -1,29 +1,34 @@
-// 국토교통부 표준노드링크 SHP/DBF 읽기 (build-nodelink-tiles.mjs, build-demo-area.mjs 공용)
+// 국토교통부 표준노드링크·연속수치지형도 SHP/DBF 읽기 (scripts/ 공용)
 import fs from 'node:fs';
 import path from 'node:path';
 
 export const DATE = '2026-10-14';
 
-// ITRF2000 중부원점 TM(GRS80, 원점 38N 127E, 가산 200000/600000, 축척 1) → 위경도
+// GRS80 횡메르카토르(TM) 좌표 → 위경도 (Snyder 역변환)
 const a = 6378137, f = 1 / 298.257222101, e2 = 2 * f - f * f, ep2 = e2 / (1 - e2);
-const lat0 = (38 * Math.PI) / 180, lon0 = (127 * Math.PI) / 180, FE = 200000, FN = 600000;
 const m1 = 1 - e2 / 4 - (3 * e2 ** 2) / 64 - (5 * e2 ** 3) / 256;
 const meridian = (p) => a * (m1 * p - ((3 * e2) / 8 + (3 * e2 ** 2) / 32 + (45 * e2 ** 3) / 1024) * Math.sin(2 * p)
   + ((15 * e2 ** 2) / 256 + (45 * e2 ** 3) / 1024) * Math.sin(4 * p) - ((35 * e2 ** 3) / 3072) * Math.sin(6 * p));
-const M0 = meridian(lat0);
 const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
-export function toLatLng(x, y) {
-  const mu = (M0 + (y - FN)) / (a * m1);
-  const p1 = mu + ((3 * e1) / 2 - (27 * e1 ** 3) / 32) * Math.sin(2 * mu) + ((21 * e1 ** 2) / 16 - (55 * e1 ** 4) / 32) * Math.sin(4 * mu)
-    + ((151 * e1 ** 3) / 96) * Math.sin(6 * mu) + ((1097 * e1 ** 4) / 512) * Math.sin(8 * mu);
-  const s = Math.sin(p1), c = Math.cos(p1), t = Math.tan(p1);
-  const C = ep2 * c * c, T = t * t, N = a / Math.sqrt(1 - e2 * s * s), R = (a * (1 - e2)) / (1 - e2 * s * s) ** 1.5;
-  const D = (x - FE) / N;
-  const lat = p1 - ((N * t) / R) * (D ** 2 / 2 - ((5 + 3 * T + 10 * C - 4 * C * C - 9 * ep2) * D ** 4) / 24
-    + ((61 + 90 * T + 298 * C + 45 * T * T - 252 * ep2 - 3 * C * C) * D ** 6) / 720);
-  const lng = lon0 + (D - ((1 + 2 * T + C) * D ** 3) / 6 + ((5 - 2 * C + 28 * T - 3 * C * C + 8 * ep2 + 24 * T * T) * D ** 5) / 120) / c;
-  return [(lat * 180) / Math.PI, (lng * 180) / Math.PI];
+function tmInverse({ lat0, lon0, k0, FE, FN }) {
+  const M0 = meridian((lat0 * Math.PI) / 180), L0 = (lon0 * Math.PI) / 180;
+  return (x, y) => {
+    const mu = (M0 + (y - FN) / k0) / (a * m1);
+    const p1 = mu + ((3 * e1) / 2 - (27 * e1 ** 3) / 32) * Math.sin(2 * mu) + ((21 * e1 ** 2) / 16 - (55 * e1 ** 4) / 32) * Math.sin(4 * mu)
+      + ((151 * e1 ** 3) / 96) * Math.sin(6 * mu) + ((1097 * e1 ** 4) / 512) * Math.sin(8 * mu);
+    const s = Math.sin(p1), c = Math.cos(p1), t = Math.tan(p1);
+    const C = ep2 * c * c, T = t * t, N = a / Math.sqrt(1 - e2 * s * s), R = (a * (1 - e2)) / (1 - e2 * s * s) ** 1.5;
+    const D = (x - FE) / (N * k0);
+    const lat = p1 - ((N * t) / R) * (D ** 2 / 2 - ((5 + 3 * T + 10 * C - 4 * C * C - 9 * ep2) * D ** 4) / 24
+      + ((61 + 90 * T + 298 * C + 45 * T * T - 252 * ep2 - 3 * C * C) * D ** 6) / 720);
+    const lng = L0 + (D - ((1 + 2 * T + C) * D ** 3) / 6 + ((5 - 2 * C + 28 * T - 3 * C * C + 8 * ep2 + 24 * T * T) * D ** 5) / 120) / c;
+    return [(lat * 180) / Math.PI, (lng * 180) / Math.PI];
+  };
 }
+/** 표준노드링크: ITRF2000 중부원점 TM (원점 38N 127E, 가산 200000/600000, 축척 1) */
+export const toLatLng = tmInverse({ lat0: 38, lon0: 127, k0: 1, FE: 200000, FN: 600000 });
+/** 연속수치지형도: UTM-K (원점 38N 127.5E, 가산 1000000/2000000, 축척 0.9996) */
+export const utmkToLatLng = tmInverse({ lat0: 38, lon0: 127.5, k0: 0.9996, FE: 1000000, FN: 2000000 });
 
 // DBF를 레코드 단위로 읽는 함수 (한글은 CP949)
 const dec = new TextDecoder('euc-kr');

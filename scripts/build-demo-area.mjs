@@ -97,6 +97,32 @@ for (const g of ordered) {
   for (const o of g) segOf[o.id] = best.id;
 }
 
+// 3-2) 관측 좌표: 배정한 링크 위 한 점에서 보도 쪽으로 조금 비킨 곳. 같은 CCTV는 같은 좌표, 단속차량은 관측마다 다르게
+const hash = (t) => [...t].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+function pointOn(ll, frac, side) {
+  const lens = ll.slice(1).map((p, i) => dist(ll[i], p));
+  let left = lens.reduce((a, b) => a + b, 0) * frac;
+  for (let i = 0; i < lens.length; i++) {
+    if (left > lens[i] && i < lens.length - 1) { left -= lens[i]; continue; }
+    const [a, b] = [ll[i], ll[i + 1]], t = lens[i] ? left / lens[i] : 0;
+    const lat = a[0] + (b[0] - a[0]) * t, lng = a[1] + (b[1] - a[1]) * t;
+    // 진행 방향의 수직으로 SIDE_M만큼 (위경도 1도 ≈ 111,320m)
+    const dy = (b[0] - a[0]) * 111320, dx = (b[1] - a[1]) * 111320 * Math.cos(midLat), l = Math.hypot(dx, dy) || 1;
+    return [r6(lat + ((dx / l) * SIDE_M * side) / 111320), r6(lng - ((dy / l) * SIDE_M * side) / (111320 * Math.cos(midLat)))];
+  }
+  return ll[0];
+}
+const SIDE_M = 7;
+const posOf = {};
+for (const o of obs) {
+  const sg = segById(segOf[o.id]);
+  const key = o.src === 'cctv' ? o.dev : o.id;
+  const h = hash(key);
+  posOf[o.id] = pointOn(sg.ll, o.src === 'cctv' ? 0.4 : 0.2 + (h % 600) / 1000, h % 2 ? 1 : -1);
+}
+obsSrc = obsSrc.replace(/(id: '([^']+)', src: '\w+', dev: '[^']+')(, lat: [\d.]+, lng: [\d.]+)?/g,
+  (_, head, id) => `${head}, lat: ${posOf[id][0]}, lng: ${posOf[id][1]}`);
+
 // 4) 저장
 for (const s of segs) delete s._len;
 const segOfTxt = obs.map((o) => ` ${JSON.stringify(o.id)}: ${JSON.stringify(segOf[o.id])}`).join(',\n');

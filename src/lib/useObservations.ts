@@ -4,7 +4,7 @@ import { SAMPLE_OBSERVATIONS } from '../data/observations';
 import type { HistoryEntry, Observation, ObservationPatch } from '../types';
 import { DEMO_NOW, PASS } from './constants';
 import { addMinutes } from './format';
-import { segPlace } from './segments';
+import { nearestSeg, segPlace } from './segments';
 
 type Saved = Record<string, ObservationPatch & { log?: HistoryEntry[] }>;
 const KEY = 'roadpush-web-v1';
@@ -32,7 +32,8 @@ export function useObservations() {
       }];
       if (o.dept !== '미배정') hist.push({ t: addMinutes(o.t, 3, DEMO_NOW), txt: `${o.dept} 배정` });
       if (o.action !== '미처리' && o.pass !== 'passable') hist.push({ t: addMinutes(o.t, 5, DEMO_NOW), txt: `처리 상태: ${o.action}` });
-      const seg = SEG_OF[o.id];
+      // 예시 데이터는 배정해 둔 링크, 실제 관측은 좌표에서 가장 가까운 링크
+      const seg = SEG_OF[o.id] ?? nearestSeg(o.lat, o.lng);
       return {
         human: null, review: '미검수', reanalyze: false,
         ...o, ...s, seg, place: segPlace(seg),

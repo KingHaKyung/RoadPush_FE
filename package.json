@@ -9,15 +9,20 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "nodelink": "node --max-old-space-size=6144 scripts/build-nodelink-tiles.mjs",
-    "demo-area": "node --max-old-space-size=6144 scripts/build-demo-area.mjs"
+    "demo-area": "node --max-old-space-size=6144 scripts/build-demo-area.mjs",
+    "centerline": "node --max-old-space-size=4096 scripts/build-centerline.mjs",
+    "geocode": "node scripts/geocode-observations.mjs"
   },
   "dependencies": {
+    "krds-uiux": "1.1.0",
     "leaflet": "1.9.4",
+    "leaflet.markercluster": "1.5.3",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },
   "devDependencies": {
     "@types/leaflet": "1.9.12",
+    "@types/leaflet.markercluster": "1.5.4",
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
     "@vitejs/plugin-react": "4.3.3",

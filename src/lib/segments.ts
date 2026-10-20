@@ -1,6 +1,7 @@
 import { NODES, SEGMENTS } from '../data/nodelink';
-import type { Filters, Observation, Pass, Period, Segment } from '../types';
-import { DEMO_NOW } from './constants';
+import type { Filters, Observation, Pass, Period, Pin, Segment, SortKey } from '../types';
+import { COND_LABEL, DEMO_NOW, SRC_LABEL } from './constants';
+import { distToLine } from './geo';
 
 /** 예시 지역 구간 + 지도에서 불러온 전국 타일 구간 */
 export const segById = new Map(SEGMENTS.map((s) => [s.id, s]));
@@ -37,9 +38,24 @@ export function inPeriod(o: Observation, period: Period, now = DEMO_NOW): boolea
   return (now.getTime() - t.getTime()) / 36e5 <= 72;
 }
 
+/** 검색어: 띄어쓰기로 나눈 낱말이 모두 위치·행정구역·주소·장비·관측 ID·유보 사유 중 어딘가에 있으면 통과 */
+export function matchesQuery(o: Observation, q: string): boolean {
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  const hay = [o.place, o.area, o.addr, SRC_LABEL[o.src], o.dev, o.id, o.reason, o.cond && COND_LABEL[o.cond]].join(' ').toLowerCase();
+  return words.every((w) => hay.includes(w));
+}
+
 export const matchesFilters = (o: Observation, f: Filters) =>
-  inPeriod(o, f.period) && f.src.has(o.src) && f.pass.has(effPass(o)) && f.act.has(o.action) &&
-  (!f.q || (o.place + o.id).includes(f.q.trim()));
+  inPeriod(o, f.period) && f.src.has(o.src) && f.pass.has(effPass(o)) && f.act.has(o.action) && matchesQuery(o, f.q);
+
+/** 정렬 비교: 날짜는 최신순, 행정구역은 가나다순, 위험도는 높은 순(점수 없음은 뒤). 같으면 최신순 */
+export function compareObs(sort: SortKey) {
+  const byTime = (a: Observation, b: Observation) => b.t.localeCompare(a.t);
+  if (sort === 'area') return (a: Observation, b: Observation) => (a.area ?? '').localeCompare(b.area ?? '', 'ko') || byTime(a, b);
+  if (sort === 'risk') return (a: Observation, b: Observation) => (b.risk ?? -1) - (a.risk ?? -1) || byTime(a, b);
+  return byTime;
+}
 
 /** 구간의 최신 촬영 관측 (기간·수집 경로 필터 반영) */
 export function segLatest(sg: Segment, obs: Observation[], f: Filters): Observation | null {
@@ -75,4 +91,31 @@ export function midOf(pts: [number, number][]) {
     h -= l;
   }
   return { x: pts[0][0], y: pts[0][1], ang: 0, tot };
+}
+
+/** 좌표에서 가장 가까운 예시 지역 링크 (백엔드 관측처럼 좌표만 있을 때) */
+export function nearestSeg(lat: number, lng: number): string {
+  let best = SEGMENTS[0].id, bd = Infinity;
+  for (const sg of SEGMENTS) { const d = distToLine([lat, lng], sg.ll); if (d < bd) { bd = d; best = sg.id; } }
+  return best;
+}
+
+export const pinKey = (o: Pick<Observation, 'lat' | 'lng'>) => `${o.lat.toFixed(5)},${o.lng.toFixed(5)}`;
+
+/** 같은 좌표 관측을 묶어 지도 핀으로 (기간·수집 경로 필터 후 최신 관측, 판정·처리 상태·검색어로 표시 여부) */
+export function pinsOf(obs: Observation[], f: Filters): Pin[] {
+  const by = new Map<string, Observation[]>();
+  for (const o of obs) {
+    if (!inPeriod(o, f.period) || !f.src.has(o.src)) continue;
+    const k = pinKey(o);
+    (by.get(k) ?? by.set(k, []).get(k)!).push(o);
+  }
+  const pins: Pin[] = [];
+  for (const [key, os] of by) {
+    const o = os.reduce((a, b) => (b.t > a.t ? b : a));
+    const pass = effPass(o);
+    if (!f.pass.has(pass) || !f.act.has(o.action) || !matchesQuery(o, f.q)) continue;
+    pins.push({ key, lat: o.lat, lng: o.lng, obs: o, pass, n: os.length });
+  }
+  return pins;
 }

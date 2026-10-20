@@ -9,3 +9,5 @@ data/raw/
 public/nodelink/
 [[]*NODELINKDATA.zip
 *.tsbuildinfo
+/*.zip
+/*.pdf

@@ -1,12 +1,18 @@
-import type { Pass } from '../../types';
+import type { Pin } from '../../types';
 
-/** 지도에 그릴 구간 상태 (관측 없는 링크는 null) */
-export type SegStatus = { pass: Pass; shown: boolean } | null;
+export type { Pin };
 
 export interface RiskMapProps {
-  statusOf: (segId: string) => SegStatus;
+  /** 필터를 통과한 관측 지점 */
+  pins: Pin[];
+  /** 선택한 핀 키 */
+  selectedPin: string | null;
+  onPickPin: (pin: Pin) => void;
+  /** 목록에서 마우스를 올린 지점 (지도에서 강조) */
+  hoverPin?: string | null;
+  /** 선택한 도로 링크 (도로를 눌렀을 때) */
   selected: string | null;
   onSelect: (segId: string) => void;
-  /** 값이 바뀌면 해당 구간으로 이동 */
+  /** 값이 바뀌면 선택한 핀(없으면 링크)으로 이동 */
   focusKey: number;
 }

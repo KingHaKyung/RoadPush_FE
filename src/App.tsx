@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Drawer } from './components/Drawer';
+import { useCallback, useEffect, useState, useRef } from 'react';
+import { Modal } from './components/Modal';
+import { ObservationDetail } from './components/ObservationDetail';
 import { Header } from './components/Header';
 import { HoldView } from './components/HoldView';
 import { ListView } from './components/ListView';
@@ -26,6 +27,12 @@ export default function App() {
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []);
+  // 화면을 바꾸면 새 화면 제목으로 포커스를 옮긴다 (처음 열 때는 제외)
+  const firstTab = useRef(true);
+  useEffect(() => {
+    if (firstTab.current) { firstTab.current = false; return; }
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('main h1')?.focus());
+  }, [tab]);
   useEffect(() => {
     if (!toastMsg) return;
     const t = setTimeout(() => setToastMsg(null), 1800);
@@ -45,6 +52,7 @@ export default function App() {
   }, [update, toast]);
 
   const holdCount = observations.filter((o) => o.pass === 'hold' && !o.human).length;
+  const closeDrawer = useCallback(() => setDrawerId(null), []);
   const drawerObs = drawerId ? observations.find((o) => o.id === drawerId) ?? null : null;
 
   return (
@@ -56,9 +64,12 @@ export default function App() {
             selectSeg={selectSeg} setSelObs={setSelObs} onUpdate={onUpdate} />
         )}
         {tab === 'list' && <ListView obs={observations} filters={filters} setFilters={setFilters} onOpen={setDrawerId} onUpdate={onUpdate} toast={toast} />}
-        {tab === 'hold' && <HoldView obs={observations} onUpdate={onUpdate} toast={toast} />}
+        {tab === 'hold' && <HoldView obs={observations} filters={filters} setFilters={setFilters} onUpdate={onUpdate} toast={toast} />}
       </main>
-      <Drawer o={drawerObs} onClose={() => setDrawerId(null)} onUpdate={onUpdate} />
+      {/* 관측 목록에서 항목을 누르면 화면 가운데 큰 창으로 */}
+      <Modal open={!!drawerObs} label={drawerObs ? `${drawerObs.place} 관측 상세` : '관측 상세'} onClose={closeDrawer}>
+        {drawerObs && <ObservationDetail key={drawerObs.id} o={drawerObs} layout="wide" onUpdate={(p, l) => onUpdate(drawerObs.id, p, l)} />}
+      </Modal>
       <Toast message={toastMsg} />
     </>
   );
