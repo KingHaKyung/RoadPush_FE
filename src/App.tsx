@@ -13,9 +13,9 @@ import type { Filters, Tab } from './types';
 const readTab = (): Tab => (['map', 'list', 'hold'].includes(location.hash.slice(1)) ? (location.hash.slice(1) as Tab) : 'map');
 
 export default function App() {
-  const { observations, update } = useObservations();
+  const { observations, update, error } = useObservations();
   const [tab, setTab] = useState<Tab>(readTab);
-  const [filters, setFilters] = useState<Filters>({ period: '3d', src: new Set(['cctv', 'car']), pass: new Set(PASS_KEYS), act: new Set(ACTIONS), q: '', sort: 'time', dept: '' });
+  const [filters, setFilters] = useState<Filters>({ period: '3d', src: new Set(['cctv', 'car', 'upload']), pass: new Set(PASS_KEYS), act: new Set(ACTIONS), q: '', sort: 'time', dept: '' });
   const [selSeg, setSelSeg] = useState<string | null>(null);
   const [selObs, setSelObs] = useState<string | null>(null);
   const [focusKey, setFocusKey] = useState(0);
@@ -46,7 +46,7 @@ export default function App() {
   }, []);
   const onUpdate = useCallback((ids: string | string[], patch: Parameters<typeof update>[1], log?: string) => {
     update(ids, patch, log);
-    if (!Array.isArray(ids) && patch.depts) toast('담당 부서를 이관했습니다');
+    if (!Array.isArray(ids) && patch.dept) toast('담당 부서를 바꿨습니다');
     else if (!Array.isArray(ids) && patch.action) toast('처리 상태를 바꿨습니다');
     else if (!Array.isArray(ids) && log?.startsWith('메모')) toast('메모를 기록했습니다');
   }, [update, toast]);
@@ -57,7 +57,7 @@ export default function App() {
 
   return (
     <>
-      <Header tab={tab} holdCount={holdCount} />
+      <Header tab={tab} holdCount={holdCount} obs={observations} error={error} />
       <main id="content" tabIndex={-1}>
         {tab === 'map' && (
           <MapView obs={observations} filters={filters} setFilters={setFilters} selSeg={selSeg} selObs={selObs} focusKey={focusKey}

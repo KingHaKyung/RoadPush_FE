@@ -6,13 +6,13 @@ import { effPass } from './segments';
 export type KpiKey = 'blocked' | 'narrowed' | 'open' | 'hold';
 type Pred = (o: Observation) => boolean;
 
-/** 위험 지도 지표: 단절·좁아짐·판단 유보는 판정, 미전달 위험은 위험 판정 + 아직 담당 부서로 넘기지 않음(재발 포함) */
+/** 위험 지도 지표: 단절·좁아짐·판단 유보는 판정, 미처리 위험은 위험 판정 + 미처리 */
 export const kpiPred = (k: KpiKey): Pred =>
-  k === 'open' ? (o) => effPass(o) !== 'passable' && (o.action === '미전달' || o.action === '재발') : (o) => effPass(o) === k;
+  k === 'open' ? (o) => effPass(o) !== 'passable' && o.action === '미처리' : (o) => effPass(o) === k;
 
 /** 지표에 들어가는 지점인지 (카드의 큰 숫자) */
 export const siteCounts = (k: KpiKey, s: Pin) =>
-  k === 'open' ? s.pass !== 'passable' && (s.obs.action === '미전달' || s.obs.action === '재발') : s.pass === k;
+  k === 'open' ? s.pass !== 'passable' && s.obs.action === '미처리' : s.pass === k;
 
 const H = 36e5;
 /** 기간을 n칸으로 나눠 칸마다 관측 수 (오늘 24시간, 최근 3일 72시간, 전체는 가장 이른 관측부터). 수집 경로 필터 반영 */
