@@ -1,3 +1,4 @@
+import type { Cctv, CctvRoad } from '../../lib/cctv';
 import type { Pin } from '../../types';
 
 export type { Pin };
@@ -10,6 +11,9 @@ export interface RiskMapProps {
   onPickPin: (pin: Pin) => void;
   /** 목록에서 마우스를 올린 지점 (지도에서 강조) */
   hoverPin?: string | null;
+  /** 지도에 표시할 교통 CCTV 도로 종류와 눌렀을 때 */
+  cctvRoads?: CctvRoad[];
+  onPickCctv?: (c: Cctv) => void;
   /** 선택한 도로 링크 (도로를 눌렀을 때) */
   selected: string | null;
   onSelect: (segId: string) => void;

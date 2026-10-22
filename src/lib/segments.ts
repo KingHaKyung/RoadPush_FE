@@ -1,6 +1,6 @@
 import { NODES, SEGMENTS } from '../data/nodelink';
 import type { Filters, Observation, Pass, Period, Pin, Segment, SortKey } from '../types';
-import { COND_LABEL, DEMO_NOW, SRC_LABEL } from './constants';
+import { CAUSE_LABEL, COND_LABEL, DEMO_NOW, SRC_LABEL } from './constants';
 import { distToLine } from './geo';
 
 /** 예시 지역 구간 + 지도에서 불러온 전국 타일 구간 */
@@ -42,12 +42,12 @@ export function inPeriod(o: Observation, period: Period, now = DEMO_NOW): boolea
 export function matchesQuery(o: Observation, q: string): boolean {
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return true;
-  const hay = [o.place, o.area, o.addr, SRC_LABEL[o.src], o.dev, o.id, o.reason, o.cond && COND_LABEL[o.cond]].join(' ').toLowerCase();
+  const hay = [o.place, o.area, o.addr, SRC_LABEL[o.src], o.dev, o.id, o.reason, o.cond && COND_LABEL[o.cond], ...o.causes.map((c) => CAUSE_LABEL[c]), ...o.depts].join(' ').toLowerCase();
   return words.every((w) => hay.includes(w));
 }
 
 export const matchesFilters = (o: Observation, f: Filters) =>
-  inPeriod(o, f.period) && f.src.has(o.src) && f.pass.has(effPass(o)) && f.act.has(o.action) && matchesQuery(o, f.q);
+  inPeriod(o, f.period) && f.src.has(o.src) && f.pass.has(effPass(o)) && f.act.has(o.action) && (!f.dept || o.depts.includes(f.dept)) && matchesQuery(o, f.q);
 
 /** 정렬 비교: 날짜는 최신순, 행정구역은 가나다순, 위험도는 높은 순(점수 없음은 뒤). 같으면 최신순 */
 export function compareObs(sort: SortKey) {
@@ -114,8 +114,11 @@ export function pinsOf(obs: Observation[], f: Filters): Pin[] {
   for (const [key, os] of by) {
     const o = os.reduce((a, b) => (b.t > a.t ? b : a));
     const pass = effPass(o);
-    if (!f.pass.has(pass) || !f.act.has(o.action) || !matchesQuery(o, f.q)) continue;
+    if (!f.pass.has(pass) || !f.act.has(o.action) || (f.dept && !o.depts.includes(f.dept)) || !matchesQuery(o, f.q)) continue;
     pins.push({ key, lat: o.lat, lng: o.lng, obs: o, pass, n: os.length });
   }
   return pins;
 }
+
+/** 담당 부서 표시 (여러 부서면 쉼표로) */
+export const deptText = (o: Observation) => (o.depts.length ? o.depts.join(', ') : '미배정');

@@ -11,3 +11,4 @@ public/nodelink/
 *.tsbuildinfo
 /*.zip
 /*.pdf
+/*.xlsx

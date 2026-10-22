@@ -1,15 +1,16 @@
 // 예시 관측 좌표 → 행정구역·주소 (브이월드 역지오코딩 getAddress)
 // src/data/observations.ts의 각 관측에 area(시군구 + 법정동)와 addr(지번 주소, 행정동)를 넣는다.
 // 행정동은 좌표에 따라 비어 오는 경우가 있어 정렬·검색 기준은 항상 값이 있는 법정동으로 한다.
-// 사용: node scripts/geocode-observations.mjs   (.env의 VITE_VWORLD_KEY 사용, 결과는 data/geocode-cache.json에 캐시)
+// 사용: node scripts/geocode-observations.mjs   (.env의 VWORLD_KEY 사용, 결과는 data/geocode-cache.json에 캐시)
 import fs from 'node:fs';
 
 const OBS = 'src/data/observations.ts';
 const CACHE = 'data/geocode-cache.json';
 const DOMAIN = 'http://localhost:5173'; // 브이월드 인증키에 등록한 서비스 URL
 
-const key = fs.readFileSync('.env', 'utf8').match(/^VITE_VWORLD_KEY=(.+)$/m)?.[1]?.trim();
-if (!key) throw new Error('.env에 VITE_VWORLD_KEY가 없습니다');
+const env = fs.readFileSync('.env', 'utf8');
+const key = (env.match(/^VWORLD_KEY=(.+)$/m) ?? env.match(/^VITE_VWORLD_KEY=(.+)$/m))?.[1]?.trim();
+if (!key) throw new Error('.env에 VWORLD_KEY가 없습니다');
 const cache = fs.existsSync(CACHE) ? JSON.parse(fs.readFileSync(CACHE, 'utf8')) : {};
 
 async function lookup(lat, lng) {

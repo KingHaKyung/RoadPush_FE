@@ -4,6 +4,7 @@ import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import { useEffect, useRef, useState } from 'react';
 import { LANDMARKS, MAP_BOUNDS, NODES, SEGMENTS } from '../../data/nodelink';
+import { loadCctvs, type Cctv } from '../../lib/cctv';
 import { loadCenterline, resolvePick } from '../../lib/centerline';
 import { ROAD_CLICK, SHOW_LANDMARKS } from '../../lib/features';
 import { loadIndex, loadTilesIn } from '../../lib/nodelinkTiles';
@@ -41,6 +42,10 @@ const MAX_LABELS = 60;
 /** 메모리에 남겨 둘 타일 수 */
 const KEEP_TILES = 40;
 const CL_ATTR = '도로폭 © 국토지리정보원 연속수치지형도';
+/** 교통 CCTV를 보이는 줌 */
+const CCTV_ZOOM = 12;
+/** 교통 CCTV 표시 (카메라 모양, 판정 핀과 구분) */
+const CCTV_ICON = '<svg viewBox="0 0 26 26" width="26" height="26" aria-hidden="true"><rect x="1" y="1" width="24" height="24" rx="6"/><path d="M6 9.5h9.5a1 1 0 0 1 1 1V12l3.5-2v6l-3.5-2v1.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1z" fill="#fff"/></svg>';
 const STATIC_IDS = new Set(SEGMENTS.map((s) => s.id));
 const BASE_KEY = 'roadpush.basemap';
 
@@ -68,8 +73,8 @@ function readBase(): boolean {
   try { return localStorage.getItem(BASE_KEY) !== 'off'; } catch { return true; }
 }
 
-/** VITE_VWORLD_KEY가 있으면 쓰는 지도: 표준노드링크 도로를 직접 그리고 브이월드는 옅은 배경으로 */
-export function VWorldRiskMap({ apiKey, pins, selectedPin, onPickPin, hoverPin, selected, onSelect, focusKey, onError }: RiskMapProps & { apiKey: string; onError: (msg: string) => void }) {
+/** 브이월드 프록시가 있으면 쓰는 지도: 표준노드링크 도로를 직접 그리고 브이월드는 옅은 배경으로 */
+export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin, cctvRoads, onPickCctv, selected, onSelect, focusKey, onError }: RiskMapProps & { tileBase: string; onError: (msg: string) => void }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const tilesRef = useRef<L.TileLayer | null>(null);
@@ -79,6 +84,8 @@ export function VWorldRiskMap({ apiKey, pins, selectedPin, onPickPin, hoverPin, 
   pick.current = onSelect;
   const pickPin = useRef(onPickPin);
   pickPin.current = onPickPin;
+  const pickCctv = useRef(onPickCctv);
+  pickCctv.current = onPickCctv;
   const clusterRef = useRef<L.MarkerClusterGroup | null>(null);
   const markers = useRef(new Map<string, L.Marker>());
   const [ready, setReady] = useState(false);
@@ -96,13 +103,14 @@ export function VWorldRiskMap({ apiKey, pins, selectedPin, onPickPin, hoverPin, 
     L.control.zoom({ position: 'topright' }).addTo(m);
     m.attributionControl.setPrefix(false).addAttribution('도로 © 국토교통부 표준노드링크(2026-10-14)');
     let failed = 0, loaded = 0;
-    tilesRef.current = L.tileLayer(`https://api.vworld.kr/req/wmts/1.0.0/${encodeURIComponent(apiKey)}/white/{z}/{y}/{x}.png`, {
+    // 키는 개발 서버(프록시)가 붙인다. 브라우저에는 키가 없다
+    tilesRef.current = L.tileLayer(`${tileBase}/white/{z}/{y}/{x}.png`, {
       minZoom: 7, maxZoom: 19, attribution: '배경지도 © 브이월드(국토교통부)',
     })
       .on('tileload', () => { loaded++; })
       .on('tileerror', () => { if (++failed >= 6 && !loaded) onError('브이월드 배경지도를 불러오지 못했습니다'); });
     // 도로 테두리 < 도로 < 위험 구간 < 라벨 순으로 겹친다
-    for (const [name, z] of [['road-edge', 404], ['road', 405], ['risk', 420], ['labels', 450]] as const) m.createPane(name).style.zIndex = String(z);
+    for (const [name, z] of [['road-edge', 404], ['road', 405], ['risk', 420], ['labels', 450], ['cctv', 560]] as const) m.createPane(name).style.zIndex = String(z);
     m.getPane('labels')!.style.pointerEvents = 'none';
     m.getPane('road-edge')!.style.pointerEvents = 'none';
     if (!ROAD_CLICK) m.getPane('road')!.style.pointerEvents = 'none';
@@ -113,7 +121,7 @@ export function VWorldRiskMap({ apiKey, pins, selectedPin, onPickPin, hoverPin, 
     riskRenderer.current = L.svg({ pane: 'risk' });
     setReady(true);
     return () => { m.remove(); map.current = null; setReady(false); };
-  }, [apiKey, onError]);
+  }, [tileBase, onError]);
 
   // 배경지도 켜기·끄기
   useEffect(() => {
@@ -300,6 +308,45 @@ export function VWorldRiskMap({ apiKey, pins, selectedPin, onPickPin, hoverPin, 
       c.addLayer(mk);
     }
   }, [ready, pins, selectedPin]);
+
+  // 교통 CCTV(ITS·UTIC, 전국 약 2만 대): 판정 핀 아래 층에 카메라 모양으로. 줌 12부터, 화면에 보이는 곳만 그린다
+  const roadsKey = (cctvRoads ?? []).join(',');
+  useEffect(() => {
+    const m = map.current; if (!ready || !m || !roadsKey) return;
+    let alive = true, list: Cctv[] = [];
+    const shown = new Map<string, L.Marker>();
+    const pick = (x: Cctv) => pickCctv.current?.(x);
+    const make = (c: Cctv) => {
+      const mk = L.marker([c.lat, c.lng], {
+        pane: 'cctv', keyboard: true,
+        icon: L.divIcon({ className: 'cctv-mk', iconSize: [26, 26], html: CCTV_ICON }),
+      });
+      mk.bindTooltip(`<b>${esc(c.name)}</b><span>${esc(c.road)} CCTV · 누르면 실시간 영상</span>`, { direction: 'top', offset: [0, -14], className: 'pin-tip', opacity: 1 });
+      mk.on('click', () => pick(c));
+      mk.on('add', () => {
+        const node = mk.getElement(); if (!node) return;
+        node.setAttribute('aria-label', `${c.road} CCTV ${c.name} 실시간 영상 보기`);
+        node.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); pick(c); } });
+        node.addEventListener('focus', () => mk.openTooltip());
+        node.addEventListener('blur', () => mk.closeTooltip());
+      });
+      return mk;
+    };
+    const sync = () => {
+      const view = m.getZoom() >= CCTV_ZOOM ? m.getBounds().pad(0.2) : null;
+      const want = new Set(view ? list.filter((c) => view.contains([c.lat, c.lng])).map((c) => c.id) : []);
+      for (const [id, mk] of shown) if (!want.has(id)) { mk.remove(); shown.delete(id); }
+      for (const c of list) if (want.has(c.id) && !shown.has(c.id)) { const mk = make(c).addTo(m); shown.set(c.id, mk); }
+    };
+    loadCctvs().then((all) => {
+      if (!alive) return;
+      const roads = roadsKey.split(',');
+      list = all.filter((x) => roads.includes(x.road));
+      sync();
+    });
+    m.on('moveend', sync);
+    return () => { alive = false; m.off('moveend', sync); for (const mk of shown.values()) mk.remove(); };
+  }, [ready, roadsKey]);
 
   // 오른쪽 목록에서 마우스를 올린 지점: 핀(묶여 있으면 그 묶음)을 강조하고 말풍선을 띄운다
   useEffect(() => {

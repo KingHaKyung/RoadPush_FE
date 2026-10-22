@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { ACCENT, ACTIONS, DEPTS, PASS, PASS_KEYS, PERIOD_LABEL, SORT_LABEL, SRC_LABEL } from '../lib/constants';
+import { ACCENT, ACTIONS, CAUSE_LABEL, DEPTS, PASS, PASS_KEYS, PERIOD_LABEL, ROUTE_LABEL, SORT_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
-import { compareObs, effPass, inPeriod, matchesFilters, matchesQuery } from '../lib/segments';
+import { compareObs, deptText, effPass, inPeriod, matchesFilters, matchesQuery } from '../lib/segments';
 import { dayDelta, spanLabel, trend } from '../lib/stats';
 import type { Action, Filters, Observation, ObservationPatch, Pass, SortKey } from '../types';
 import { KpiCard, SectionTitle } from './Dashboard';
 import { PeriodToggle } from './PeriodToggle';
 import { Pill } from './Pill';
+import { PersistBadge, RouteBadge } from './RouteBadge';
 
 interface Props {
   obs: Observation[];
@@ -16,6 +17,9 @@ interface Props {
   onUpdate: (ids: string | string[], patch: ObservationPatch, log?: string) => void;
   toast: (m: string) => void;
 }
+
+/** 처리 대상이 아닌 관측(통과 가능·원인 없음)은 상태 대신 '해당 없음' */
+const statusText = (o: Observation) => (!o.routes.length && o.action === '미전달' ? (effPass(o) === 'hold' ? '검수 필요' : '해당 없음') : o.action);
 
 export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast }: Props) {
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -29,9 +33,9 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
   const only = <T,>(set: Set<T>, v: T) => set.size === 1 && set.has(v);
   const KPIS: { label: string; pred: (o: Observation) => boolean; tone: 'risk' | 'good' | 'neutral'; active: boolean; apply: Partial<Filters>; accent: string }[] = [
     { label: '전체 관측', pred: () => true, tone: 'neutral', active: allPass && allAct, apply: { pass: new Set(PASS_KEYS), act: new Set(ACTIONS) }, accent: ACCENT.primary },
-    { label: '단절', pred: (o) => effPass(o) === 'blocked', tone: 'risk', active: only(f.pass, 'blocked') && allAct, apply: { pass: new Set<Pass>(['blocked']), act: new Set(ACTIONS) }, accent: ACCENT.danger },
-    { label: '미처리', pred: (o) => o.action === '미처리', tone: 'risk', active: allPass && only(f.act, '미처리'), apply: { pass: new Set(PASS_KEYS), act: new Set<Action>(['미처리']) }, accent: ACCENT.warning },
-    { label: '조치 완료', pred: (o) => o.action === '조치 완료', tone: 'good', active: allPass && only(f.act, '조치 완료'), apply: { pass: new Set(PASS_KEYS), act: new Set<Action>(['조치 완료']) }, accent: ACCENT.success },
+    { label: '미전달', pred: (o) => o.routes.length > 0 && o.action === '미전달', tone: 'risk', active: allPass && only(f.act, '미전달'), apply: { pass: new Set(PASS_KEYS), act: new Set<Action>(['미전달']) }, accent: ACCENT.warning },
+    { label: '재발', pred: (o) => o.action === '재발', tone: 'risk', active: allPass && only(f.act, '재발'), apply: { pass: new Set(PASS_KEYS), act: new Set<Action>(['재발']) }, accent: ACCENT.danger },
+    { label: '해소 확인', pred: (o) => o.action === '해소 확인', tone: 'good', active: allPass && only(f.act, '해소 확인'), apply: { pass: new Set(PASS_KEYS), act: new Set<Action>(['해소 확인']) }, accent: ACCENT.success },
   ];
   const sortBtn = (k: SortKey, label: string) => (
     <button type="button" aria-pressed={f.sort === k} onClick={() => setFilters({ ...f, sort: k })}>{label}{f.sort === k ? ' ▾' : ''}</button>
@@ -41,14 +45,16 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
   const last = (o: Observation) => [...o.hist].sort((a, b) => b.t.localeCompare(a.t))[0];
 
   const copy = () => {
-    const tsv = ['촬영 시각\t수집 경로\t행정구역\t링크\t위치\tAI 판정\t위험도\t담당 부서\t처리 상태\t관측 ID',
-      ...rows.map((o) => [fmtTime(o.t), `${SRC_LABEL[o.src]} ${o.dev}`, o.area ?? '', o.seg, o.place, PASS[effPass(o)].label, o.risk ?? '', o.dept, o.action, o.id].join('\t'))].join('\n');
+    const tsv = ['촬영 시각\t수집 경로\t행정구역\t위치\t주소\tAI 판정\t위험도\t원인\t처리 유형\t지속성\t담당 부서\t처리 상태\t관측 ID',
+      ...rows.map((o) => [fmtTime(o.t), `${SRC_LABEL[o.src]} ${o.dev}`, o.area ?? '', o.place, o.addr ?? '', PASS[effPass(o)].label, o.risk ?? '', o.causes.map((c) => CAUSE_LABEL[c]).join(', '),
+        o.routes.map((r) => `${r.type}. ${ROUTE_LABEL[r.type]}`).join(', '), o.persist ? `${o.persist.kind} ${o.persist.n}회` : '', deptText(o), statusText(o), o.id].join('\t'))].join('\n');
     navigator.clipboard.writeText(tsv).then(() => toast(`${rows.length}건을 복사했습니다. 엑셀에 붙여넣으세요`), () => toast('복사하지 못했습니다'));
   };
   const applyBulk = () => {
     if (!bulkDept && !bulkAct) { toast('바꿀 항목을 고르세요'); return; }
     const ids = [...picked];
-    if (bulkDept) onUpdate(ids, { dept: bulkDept }, `${bulkDept} 배정 (일괄)`);
+    // 원인이 여러 개인 건은 모든 원인의 담당을 이 부서로
+    if (bulkDept) for (const o of rows.filter((r) => picked.has(r.id))) onUpdate(o.id, { depts: o.routes.length ? o.routes.map(() => bulkDept) : [bulkDept] }, `이관: ${bulkDept} (일괄)`);
     if (bulkAct) onUpdate(ids, { action: bulkAct as Action }, `처리 상태: ${bulkAct} (일괄)`);
     toast(`${ids.length}건에 적용했습니다`);
     setPicked(new Set()); setBulkDept(''); setBulkAct('');
@@ -77,6 +83,10 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
         <select className="krds-form-select small" id="fa" value={f.act.size === 1 ? [...f.act][0] : ''} onChange={(e) => setFilters({ ...f, act: new Set(e.target.value ? [e.target.value as Action] : ACTIONS) })}>
           <option value="">처리 상태 전체</option>{ACTIONS.map((a) => <option key={a}>{a}</option>)}
         </select>
+        <label className="vh" htmlFor="fd">담당 부서</label>
+        <select className="krds-form-select small" id="fd" value={f.dept} onChange={(e) => setFilters({ ...f, dept: e.target.value })}>
+          <option value="">담당 부서 전체</option>{DEPTS.filter((d) => d !== '미배정').map((d) => <option key={d}>{d}</option>)}
+        </select>
         <label className="vh" htmlFor="fs">정렬</label>
         <select className="krds-form-select-sort small" id="fs" value={f.sort} onChange={(e) => setFilters({ ...f, sort: e.target.value as SortKey })}>
           {(Object.keys(SORT_LABEL) as SortKey[]).map((k) => <option key={k} value={k}>{SORT_LABEL[k]}</option>)}
@@ -87,7 +97,7 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
       {picked.size > 0 && (
         <div className="bulk">
           <span><b>{picked.size}건</b> 선택</span>
-          <select className="krds-form-select small" aria-label="담당 부서" value={bulkDept} onChange={(e) => setBulkDept(e.target.value)}><option value="">담당 부서 유지</option>{DEPTS.map((d) => <option key={d}>{d}</option>)}</select>
+          <select className="krds-form-select small" aria-label="담당 부서" value={bulkDept} onChange={(e) => setBulkDept(e.target.value)}><option value="">담당 부서 이관 안 함</option>{DEPTS.map((d) => <option key={d}>{d}</option>)}</select>
           <select className="krds-form-select small" aria-label="처리 상태" value={bulkAct} onChange={(e) => setBulkAct(e.target.value)}><option value="">처리 상태 유지</option>{ACTIONS.map((a) => <option key={a}>{a}</option>)}</select>
           <button type="button" className="krds-btn small primary" onClick={applyBulk}>일괄 적용</button>
           <button type="button" className="krds-btn small tertiary" onClick={() => setPicked(new Set())}>선택 해제</button>
@@ -101,8 +111,8 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
             <tr>
               <th scope="col" className="cb"><div className="krds-form-check"><input type="checkbox" id="pick-all" checked={allOn} onChange={(e) => setPicked(e.target.checked ? new Set(rows.map((o) => o.id)) : new Set())} /><label htmlFor="pick-all"><span className="vh">모두 선택</span></label></div></th>
               <th scope="col">{sortBtn('time', '촬영 시각')}</th>
-              <th scope="col">수집 경로</th><th scope="col">{sortBtn('area', '행정구역')}</th><th scope="col">링크</th><th scope="col">위치</th><th scope="col">AI 판정</th>
-              <th scope="col">{sortBtn('risk', '위험도')}</th>
+              <th scope="col">수집 경로</th><th scope="col">{sortBtn('area', '행정구역')}</th><th scope="col">위치</th><th scope="col">AI 판정</th>
+              <th scope="col">{sortBtn('risk', '위험도')}</th><th scope="col">처리 유형</th><th scope="col">지속성</th>
               <th scope="col">담당 부서</th><th scope="col">처리 상태</th><th scope="col">최근 처리</th>
             </tr>
           </thead>
@@ -115,22 +125,23 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
                   <td>{fmtTime(o.t)}</td>
                   <td>{SRC_LABEL[o.src]} <span className="small">{o.dev}</span></td>
                   <td>{o.area ?? <span className="small">—</span>}</td>
-                  <td className="small">{o.seg}</td>
                   {/* 행 전체 클릭(마우스)과 별도로, 키보드로도 열 수 있게 위치를 버튼으로 */}
                   <td><button type="button" className="row-open" onClick={(e) => { e.stopPropagation(); onOpen(o.id); }}>{o.place}</button></td>
                   <td><Pill pass={effPass(o)} /></td>
                   <td className="num">{o.risk ?? <span className="small">—</span>}</td>
-                  <td>{o.dept === '미배정' ? <span className="small">미배정</span> : o.dept}</td>
+                  <td>{o.routes.length ? <span className="krds-badge-wrap">{o.routes.map((r) => <RouteBadge key={r.cause} route={r} />)}</span> : <span className="small">—</span>}</td>
+                  <td>{o.persist ? <PersistBadge p={o.persist} /> : <span className="small">—</span>}</td>
+                  <td>{o.depts.length ? o.depts.join(', ') : <span className="small">미배정</span>}</td>
                   <td onClick={(e) => e.stopPropagation()}>
-                    <select className="krds-form-select small status" data-v={o.action} aria-label={`${o.place} 처리 상태`} value={o.action}
+                    {!o.routes.length && o.action === '미전달' ? <span className="small">{statusText(o)}</span> : <select className="krds-form-select small status" data-v={o.action} aria-label={`${o.place} 처리 상태`} value={o.action}
                       onChange={(e) => { onUpdate(o.id, { action: e.target.value as Action }, `처리 상태: ${e.target.value}`); toast('처리 상태를 바꿨습니다'); }}>
                       {ACTIONS.map((a) => <option key={a}>{a}</option>)}
-                    </select>
+                    </select>}
                   </td>
                   <td className="small last" title={l.txt}>{fmtTime(l.t)} {l.txt}</td>
                 </tr>
               );
-            }) : <tr><td colSpan={11} className="small" style={{ textAlign: 'center', padding: 32 }}>조건에 맞는 관측이 없습니다.</td></tr>}
+            }) : <tr><td colSpan={12} className="small" style={{ textAlign: 'center', padding: 32 }}>조건에 맞는 관측이 없습니다.</td></tr>}
           </tbody>
         </table>
       </div>

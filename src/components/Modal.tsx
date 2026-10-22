@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 
 /** 화면 가운데 큰 창. Esc·바깥 누르기·닫기 버튼으로 닫고, 닫으면 열기 전 위치로 포커스를 돌려준다 */
-export function Modal({ open, label, onClose, children }: { open: boolean; label: string; onClose: () => void; children: ReactNode }) {
+export function Modal({ open, label, onClose, children, size = 'lg' }: { open: boolean; label: string; onClose: () => void; children: ReactNode; size?: 'md' | 'lg' | 'xl' }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -25,7 +25,7 @@ export function Modal({ open, label, onClose, children }: { open: boolean; label
   if (!open) return null;
   return (
     <div className="modal-wrap" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={boxRef} className="modal-box" role="dialog" aria-modal="true" aria-label={label}>
+      <div ref={boxRef} className={`modal-box modal-${size}`} role="dialog" aria-modal="true" aria-label={label}>
         <button ref={closeRef} type="button" className="krds-btn small tertiary modal-close" onClick={onClose}>닫기</button>
         {children}
       </div>
