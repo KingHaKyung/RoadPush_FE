@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { ACCENT, ACTIONS, CAUSE_LABEL, DEPTS, PASS, PASS_KEYS, PERIOD_LABEL, ROUTE_LABEL, SORT_LABEL, SRC_LABEL } from '../lib/constants';
+import { ACCENT, ACTIONS, DEPTS, PASS, PASS_KEYS, PERIOD_LABEL, ROUTE_LABEL, SORT_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
-import { compareObs, deptText, effPass, inPeriod, matchesFilters, matchesQuery } from '../lib/segments';
+import { compareObs, effPass, inPeriod, matchesFilters, matchesQuery } from '../lib/segments';
 import { dayDelta, spanLabel, trend } from '../lib/stats';
 import type { Action, Filters, Observation, ObservationPatch, Pass, SortKey } from '../types';
 import { KpiCard, SectionTitle } from './Dashboard';
 import { PeriodToggle } from './PeriodToggle';
 import { Pill } from './Pill';
-import { PersistBadge, RouteBadge } from './RouteBadge';
+import { PersistBadge, RouteBadge, SiteBadge } from './RouteBadge';
 
 interface Props {
   obs: Observation[];
@@ -19,7 +19,7 @@ interface Props {
 }
 
 /** 처리 대상이 아닌 관측(통과 가능·원인 없음)은 상태 대신 '해당 없음' */
-const statusText = (o: Observation) => (!o.routes.length && o.action === '미전달' ? (effPass(o) === 'hold' ? '검수 필요' : '해당 없음') : o.action);
+const statusText = (o: Observation) => (!o.routes.length && o.action === '미처리' ? (effPass(o) === 'hold' ? '검수 필요' : '해당 없음') : o.action);
 
 export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast }: Props) {
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -33,9 +33,9 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
   const only = <T,>(set: Set<T>, v: T) => set.size === 1 && set.has(v);
   const KPIS: { label: string; pred: (o: Observation) => boolean; tone: 'risk' | 'good' | 'neutral'; active: boolean; apply: Partial<Filters>; accent: string }[] = [
     { label: '전체 관측', pred: () => true, tone: 'neutral', active: allPass && allAct, apply: { pass: new Set(PASS_KEYS), act: new Set(ACTIONS) }, accent: ACCENT.primary },
-    { label: '미전달', pred: (o) => o.routes.length > 0 && o.action === '미전달', tone: 'risk', active: allPass && only(f.act, '미전달'), apply: { pass: new Set(PASS_KEYS), act: new Set<Action>(['미전달']) }, accent: ACCENT.warning },
-    { label: '재발', pred: (o) => o.action === '재발', tone: 'risk', active: allPass && only(f.act, '재발'), apply: { pass: new Set(PASS_KEYS), act: new Set<Action>(['재발']) }, accent: ACCENT.danger },
-    { label: '해소 확인', pred: (o) => o.action === '해소 확인', tone: 'good', active: allPass && only(f.act, '해소 확인'), apply: { pass: new Set(PASS_KEYS), act: new Set<Action>(['해소 확인']) }, accent: ACCENT.success },
+    { label: '단절', pred: (o) => effPass(o) === 'blocked', tone: 'risk', active: only(f.pass, 'blocked') && allAct, apply: { pass: new Set<Pass>(['blocked']), act: new Set(ACTIONS) }, accent: ACCENT.danger },
+    { label: '미처리', pred: (o) => o.routes.length > 0 && o.action === '미처리', tone: 'risk', active: allPass && only(f.act, '미처리'), apply: { pass: new Set(PASS_KEYS), act: new Set<Action>(['미처리']) }, accent: ACCENT.warning },
+    { label: '조치 완료', pred: (o) => o.action === '조치 완료', tone: 'good', active: allPass && only(f.act, '조치 완료'), apply: { pass: new Set(PASS_KEYS), act: new Set<Action>(['조치 완료']) }, accent: ACCENT.success },
   ];
   const sortBtn = (k: SortKey, label: string) => (
     <button type="button" aria-pressed={f.sort === k} onClick={() => setFilters({ ...f, sort: k })}>{label}{f.sort === k ? ' ▾' : ''}</button>
@@ -45,16 +45,15 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
   const last = (o: Observation) => [...o.hist].sort((a, b) => b.t.localeCompare(a.t))[0];
 
   const copy = () => {
-    const tsv = ['촬영 시각\t수집 경로\t행정구역\t위치\t주소\tAI 판정\t위험도\t원인\t처리 유형\t지속성\t담당 부서\t처리 상태\t관측 ID',
-      ...rows.map((o) => [fmtTime(o.t), `${SRC_LABEL[o.src]} ${o.dev}`, o.area ?? '', o.place, o.addr ?? '', PASS[effPass(o)].label, o.risk ?? '', o.causes.map((c) => CAUSE_LABEL[c]).join(', '),
-        o.routes.map((r) => `${r.type}. ${ROUTE_LABEL[r.type]}`).join(', '), o.persist ? `${o.persist.kind} ${o.persist.n}회` : '', deptText(o), statusText(o), o.id].join('\t'))].join('\n');
+    const tsv = ['촬영 시각\t수집 경로\t행정구역\t위치\t주소\tAI 판정\t위험도\t원인\t처리 유형\t지속성\t현장 확인\t담당 부서\t처리 상태\t관측 ID',
+      ...rows.map((o) => [fmtTime(o.t), `${SRC_LABEL[o.src]} ${o.dev}`, o.area ?? '', o.place, o.addr ?? '', PASS[effPass(o)].label, o.risk ?? '', o.causes.join(', '),
+        o.routes.map((r) => `${r.type}. ${ROUTE_LABEL[r.type]}`).join(', '), o.persist ? `${o.persist.kind} ${o.persist.n}회` : '', o.site ?? '', o.dept, statusText(o), o.id].join('\t'))].join('\n');
     navigator.clipboard.writeText(tsv).then(() => toast(`${rows.length}건을 복사했습니다. 엑셀에 붙여넣으세요`), () => toast('복사하지 못했습니다'));
   };
   const applyBulk = () => {
     if (!bulkDept && !bulkAct) { toast('바꿀 항목을 고르세요'); return; }
     const ids = [...picked];
-    // 원인이 여러 개인 건은 모든 원인의 담당을 이 부서로
-    if (bulkDept) for (const o of rows.filter((r) => picked.has(r.id))) onUpdate(o.id, { depts: o.routes.length ? o.routes.map(() => bulkDept) : [bulkDept] }, `이관: ${bulkDept} (일괄)`);
+    if (bulkDept) onUpdate(ids, { dept: bulkDept }, `담당 부서: ${bulkDept} (일괄)`);
     if (bulkAct) onUpdate(ids, { action: bulkAct as Action }, `처리 상태: ${bulkAct} (일괄)`);
     toast(`${ids.length}건에 적용했습니다`);
     setPicked(new Set()); setBulkDept(''); setBulkAct('');
@@ -130,10 +129,10 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
                   <td><Pill pass={effPass(o)} /></td>
                   <td className="num">{o.risk ?? <span className="small">—</span>}</td>
                   <td>{o.routes.length ? <span className="krds-badge-wrap">{o.routes.map((r) => <RouteBadge key={r.cause} route={r} />)}</span> : <span className="small">—</span>}</td>
-                  <td>{o.persist ? <PersistBadge p={o.persist} /> : <span className="small">—</span>}</td>
-                  <td>{o.depts.length ? o.depts.join(', ') : <span className="small">미배정</span>}</td>
+                  <td>{o.persist || o.site ? <span className="krds-badge-wrap">{o.persist && <PersistBadge p={o.persist} />}{o.site && <SiteBadge s={o.site} />}</span> : <span className="small">—</span>}</td>
+                  <td>{o.dept === '미배정' ? <span className="small">미배정</span> : o.dept}</td>
                   <td onClick={(e) => e.stopPropagation()}>
-                    {!o.routes.length && o.action === '미전달' ? <span className="small">{statusText(o)}</span> : <select className="krds-form-select small status" data-v={o.action} aria-label={`${o.place} 처리 상태`} value={o.action}
+                    {!o.routes.length && o.action === '미처리' ? <span className="small">{statusText(o)}</span> : <select className="krds-form-select small status" data-v={o.action} aria-label={`${o.place} 처리 상태`} value={o.action}
                       onChange={(e) => { onUpdate(o.id, { action: e.target.value as Action }, `처리 상태: ${e.target.value}`); toast('처리 상태를 바꿨습니다'); }}>
                       {ACTIONS.map((a) => <option key={a}>{a}</option>)}
                     </select>}

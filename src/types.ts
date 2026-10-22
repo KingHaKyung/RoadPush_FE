@@ -1,20 +1,12 @@
 export type Pass = 'blocked' | 'narrowed' | 'passable' | 'hold';
-/**
- * 처리 상태. RoadPush는 발견·전달·해소 확인만 맡고, 계도·단속 같은 처리 과정은 기존 행정 시스템에서 진행한다.
- * 미전달: 아직 담당 부서로 넘기지 않음 · 전달됨: 처리 요청서를 넘김 · 해소 확인: 다음 관측에서 사라짐
- * 재발: 해소된 뒤 같은 원인이 다시 감지됨 · 오탐 종결: 담당자가 AI 오류로 정리
- */
-export type Action = '미전달' | '전달됨' | '해소 확인' | '재발' | '오탐 종결';
+/** 처리 상태 (백엔드 action.label과 같다) */
+export type Action = '미처리' | '현장점검 요청' | '조치 중' | '조치 완료';
 /** 처리 유형: 누가·어떻게 처리하나 (A 운영사 수거 · B 점유자 계도 · C 단속 · D 허가 확인 · E 수거 · F 정비 계획) */
 export type RouteType = 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
-/**
- * 탐지 클래스 (2026-10-22 확정안). 처리 경로가 같고 생김새가 비슷한 것끼리 합쳤다.
- * vehicle 승용차·트럭·버스·오토바이 · construction 바리케이드 · debris 입간판·리어카·의자·탁자 · micromobility 자전거·킥보드
- */
-export type Cause = 'vehicle' | 'construction' | 'debris' | 'micromobility';
+/** 처리 경로 (화면에서만 계산해 보여 주는 안내. 백엔드에 저장하지 않는다) */
 export interface Route {
   /** 이 경로를 만든 원인 */
-  cause: Cause;
+  cause: string;
   type: RouteType;
   /** 기본 담당 부서 */
   dept: string;
@@ -23,6 +15,8 @@ export interface Route {
   /** 외부 신고 경로 (있을 때만) */
   link?: { label: string; url: string };
 }
+/** 현장 확인 결과 (처리 상태와 별개. 업무 종결과 현장 개선을 따로 본다) */
+export type SiteCheck = '해소 확인' | '재발' | '새 관측 대기';
 /** 같은 지점의 감지 이력으로 계산한 지속성 */
 export interface Persistence {
   /** 일시: 한 번만 감지 · 지속: 연속 관측에서 계속 감지 · 상습: 사라졌다 다시 나타나기를 반복 */
@@ -32,7 +26,7 @@ export interface Persistence {
   /** 첫 감지부터 이 관측까지 일수 */
   days: number;
 }
-export type Source = 'cctv' | 'car';
+export type Source = 'cctv' | 'car' | 'upload';
 export type Condition = 'night' | 'rain' | 'occluded' | 'mixed';
 export type Review = '미검수' | '확인' | '수정';
 export type Period = 'today' | '3d' | 'all';
@@ -85,23 +79,26 @@ export interface ObservationBase {
   pass: Pass;
   risk: number | null;
   occ: number | null;
-  causes: Cause[];
+  causes: string[];
   reason?: string;
   cond?: Condition;
   action: Action;
+  dept: string;
+  /** 백엔드 연결 시: 원본 사진·분석 결과 이미지 주소 */
+  img?: { original: string; overlay?: string };
 }
 
 /** 화면에서 쓰는 관측: AI 결과 + 사람 판단·처리 기록 */
 export interface Observation extends ObservationBase {
   seg: string;
   place: string;
-  /** 원인마다 정한 처리 경로. 위험이 아니거나 원인이 없으면 빈 배열 */
-  routes: Route[];
   /**
-   * 담당 부서. routes와 같은 순서로 원인마다 하나씩 (원인이 둘이고 부서가 다르면 두 부서 모두에 연락).
-   * 처리 경로가 없으면 사람이 지정한 부서만 (없으면 빈 배열 = 미배정)
+   * 아래 셋은 화면에서만 계산하는 값 (백엔드에 저장하지 않음)
+   * routes: 원인마다 처리 경로 (원인이 둘이고 기본 부서가 다르면 두 부서 모두 안내). 위험이 아니거나 원인이 없으면 빈 배열
    */
-  depts: string[];
+  routes: Route[];
+  /** 현장 확인: 다음 관측에서 원인이 사라졌는지(해소), 사라졌다 다시 나타났는지(재발) */
+  site: SiteCheck | null;
   /** 같은 지점의 감지 이력. 원인이 없으면 null */
   persist: Persistence | null;
   human: Pass | null;
@@ -124,7 +121,7 @@ export interface Pin {
 }
 
 /** 사람이 바꾼 값 (AI 결과와 따로 저장) */
-export type ObservationPatch = Partial<Pick<Observation, 'action' | 'depts' | 'human' | 'review' | 'reanalyze'>>;
+export type ObservationPatch = Partial<Pick<Observation, 'action' | 'dept' | 'human' | 'review' | 'reanalyze'>>;
 
 export interface Filters {
   period: Period;

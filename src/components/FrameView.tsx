@@ -4,13 +4,18 @@ import { fmtTime } from '../lib/format';
 
 /** 촬영 화면 자리 표시용 그림. 백엔드가 붙으면 원본 사진·overlay 이미지로 바꾼다. */
 export function FrameView({ o, overlay }: { o: Observation; overlay: boolean }) {
+  // 백엔드에 연결되면 실제 사진을 보여 준다 ('분석'이면 overlay, 없으면 원본)
+  if (o.img) {
+    const src = overlay && o.img.overlay ? o.img.overlay : o.img.original;
+    return <img src={src} alt={`${o.place} ${overlay ? '분석 결과' : '원본'} 사진`} style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }} />;
+  }
   const W = 320, H = 190, top = 88, bot = H;
   const L = (y: number) => 205 + ((150 - 205) * (y - top)) / (bot - top);
   const R = (y: number) => 248 + ((320 - 248) * (y - top)) / (bot - top);
   const occ = o.occ ?? (o.cond === 'occluded' ? 60 : 0);
   const y0 = 172, w = R(y0) - L(y0), ow = Math.max(12, (w * occ) / 100);
   const walk = `150,${bot} 320,${bot} 320,${top + 14} 248,${top} 205,${top}`;
-  const kinds = o.causes.length ? o.causes : o.cond === 'occluded' ? ['vehicle'] : [];
+  const kinds = o.causes.length ? o.causes : o.cond === 'occluded' ? ['차량'] : [];
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${o.place} 촬영 화면 예시`}>
@@ -22,9 +27,9 @@ export function FrameView({ o, overlay }: { o: Observation; overlay: boolean }) 
       <line x1="150" y1={bot} x2="205" y2={top} stroke="#fff" strokeOpacity=".5" strokeWidth="2" />
       {kinds.map((k, i) => {
         const x = L(y0) + (i ? w - ow * 0.45 : 2), y = y0 - 6 * i;
-        if (k === 'vehicle') return <g key={i}><rect x={x} y={y - 42} width={ow} height="44" rx="8" fill="#3E4650" /><rect x={x + 8} y={y - 36} width={Math.max(4, ow - 16)} height="14" rx="3" fill="#8FA1B3" /></g>;
-        if (k === 'construction') return <g key={i}><rect x={x} y={y - 30} width={ow} height="8" fill="#E36B2C" /><rect x={x} y={y - 14} width={ow} height="8" fill="#F2F0EB" />{[0, 1, 2].map((j) => <polygon key={j} points={`${x + 8 + (j * (ow - 16)) / 2},${y} ${x + 16 + (j * (ow - 16)) / 2},${y} ${x + 12 + (j * (ow - 16)) / 2},${y - 26}`} fill="#E36B2C" />)}</g>;
-        if (k === 'debris') return <g key={i}><rect x={x} y={y - 26} width={ow * 0.55} height="28" fill="#A67C52" /><rect x={x + ow * 0.35} y={y - 40} width={ow * 0.5} height="42" fill="#8C6A47" /></g>;
+        if (k === '차량') return <g key={i}><rect x={x} y={y - 42} width={ow} height="44" rx="8" fill="#3E4650" /><rect x={x + 8} y={y - 36} width={Math.max(4, ow - 16)} height="14" rx="3" fill="#8FA1B3" /></g>;
+        if (k === '공사시설') return <g key={i}><rect x={x} y={y - 30} width={ow} height="8" fill="#E36B2C" /><rect x={x} y={y - 14} width={ow} height="8" fill="#F2F0EB" />{[0, 1, 2].map((j) => <polygon key={j} points={`${x + 8 + (j * (ow - 16)) / 2},${y} ${x + 16 + (j * (ow - 16)) / 2},${y} ${x + 12 + (j * (ow - 16)) / 2},${y - 26}`} fill="#E36B2C" />)}</g>;
+        if (k === '적치물') return <g key={i}><rect x={x} y={y - 26} width={ow * 0.55} height="28" fill="#A67C52" /><rect x={x + ow * 0.35} y={y - 40} width={ow * 0.5} height="42" fill="#8C6A47" /></g>;
         return <g key={i}><line x1={x} y1={y} x2={x + Math.min(ow, 40)} y2={y - 28} stroke="#2F3A44" strokeWidth="5" strokeLinecap="round" /><circle cx={x + 4} cy={y - 2} r="7" fill="none" stroke="#2F3A44" strokeWidth="3" /></g>;
       })}
       {o.cond === 'rain' && (

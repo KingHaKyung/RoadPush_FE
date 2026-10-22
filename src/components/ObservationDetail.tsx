@@ -1,13 +1,13 @@
 import { useId, useState, type ReactNode } from 'react';
-import { ACTIONS, CAUSE_HINT, CAUSE_LABEL, DEPTS, PASS, RANK, ROUTE_LABEL, SRC_LABEL } from '../lib/constants';
+import { ACTIONS, DEPTS, PASS, RANK, ROUTE_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
-import { deptText, effPass, segById } from '../lib/segments';
+import { effPass, segById } from '../lib/segments';
 import { requestText } from '../lib/request';
 import type { Action, Observation, ObservationPatch } from '../types';
 import { ChipGroup } from './ChipGroup';
 import { FrameView } from './FrameView';
 import { Pill } from './Pill';
-import { PersistBadge, RouteBadge } from './RouteBadge';
+import { PersistBadge, RouteBadge, SiteBadge } from './RouteBadge';
 
 interface Props {
   o: Observation;
@@ -30,20 +30,18 @@ export function ObservationDetail({ o, onUpdate, layout = 'panel', extra }: Prop
     onUpdate({}, `메모: ${v}`);
     setMemo('');
   };
-  // [전달] 기존 행정 시스템에 붙여 넣을 처리 요청서를 복사하고 '전달됨'으로 기록
+  // 원인마다 기본 부서 (둘 이상이면 같은 요청서를 모든 부서에 보낸다)
+  const routeDepts = [...new Set(o.routes.map((r) => r.dept))];
+  // [전달] 기존 행정 시스템에 붙여 넣을 처리 요청서를 복사하고 '현장점검 요청'으로 기록. 부서가 비어 있으면 첫 원인의 기본 부서로
   const deliver = () => {
-    const done = () => onUpdate({ action: '전달됨' }, `처리 요청서 전달 (${deptText(o)})`);
+    const dept = o.dept === '미배정' ? routeDepts[0] ?? '미배정' : o.dept;
+    const done = () => onUpdate({ action: '현장점검 요청', ...(dept !== o.dept ? { dept } : {}) }, `처리 요청서 전달 (${[...new Set([dept, ...routeDepts])].join(', ')})`);
     navigator.clipboard?.writeText(requestText(o)).then(done, done);
   };
-  // 원인 i의 담당 부서 이관 (원인이 없으면 부서 하나만 지정)
-  const setDept = (i: number, v: string) => {
-    if (!o.routes.length) { onUpdate({ depts: v === '미배정' ? [] : [v] }, `이관: ${deptText(o)} → ${v}`); return; }
-    const next = [...o.depts]; next[i] = v;
-    onUpdate({ depts: next }, `이관(${CAUSE_LABEL[o.routes[i].cause]}): ${o.depts[i]} → ${v}`);
-  };
   const links = [...new Map(o.routes.flatMap((r) => (r.link ? [[r.link.url, r.link] as const] : []))).values()];
+  // 오탐: 사람 판정을 '통과 가능'으로 바꾼다. 사유는 처리 이력에만 남는다 (백엔드에는 아직 저장하지 않음)
   const markFalse = (why: string) => {
-    onUpdate({ action: '오탐 종결', human: 'passable', review: '수정' }, `오탐 처리: ${why}`);
+    onUpdate({ human: 'passable', review: '수정' }, `오탐 처리: ${why}`);
     setFpOpen(false);
   };
   return (
@@ -77,24 +75,19 @@ export function ObservationDetail({ o, onUpdate, layout = 'panel', extra }: Prop
           <dt>상대 위험도</dt>
           <dd>{o.risk == null ? '산출 불가' : <><b>{o.risk}</b> / 100<div className="meter"><i style={{ width: `${o.risk}%`, background: PASS[o.pass].color }} /></div></>}</dd>
           <dt>보도 점유</dt><dd>{o.occ == null ? '측정 불가' : <>{o.occ}% <span className="small">(사진 면적 기준 근사)</span></>}</dd>
-          <dt>원인</dt><dd>{o.causes.length ? <span className="krds-badge-wrap">{o.causes.map((c) => <span key={c} className="krds-badge small outline-gray" title={CAUSE_HINT[c]}>{CAUSE_LABEL[c]}</span>)}</span> : '없음'}</dd>
-          {o.routes.length > 0 && <><dt>처리 유형</dt><dd>{o.routes.map((r, i) => <div key={r.cause}>{r.type}. {ROUTE_LABEL[r.type]} · {o.depts[i]}</div>)}</dd></>}
+          <dt>원인</dt><dd>{o.causes.length ? <span className="krds-badge-wrap">{o.causes.map((c) => <span key={c} className="krds-badge small outline-gray">{c}</span>)}</span> : '없음'}</dd>
+          {o.routes.length > 0 && <><dt>처리 유형</dt><dd>{o.routes.map((r) => <div key={r.cause}>{r.type}. {ROUTE_LABEL[r.type]} · {r.dept}</div>)}</dd></>}
         </dl>
         {o.reason && <div className="reason">{o.reason}</div>}
         {o.routes.length > 0 && (
           <section className="route-box" aria-label="처리 경로">
-            <div className="rowx"><h4 className="sec">처리 경로</h4>{o.persist && <PersistBadge p={o.persist} />}</div>
-            {o.routes.length > 1 && <p className="small">담당이 다른 원인이 함께 감지됐습니다. 같은 요청서를 두 부서 모두에 보내세요.</p>}
+            <div className="rowx"><h4 className="sec">처리 경로</h4>{o.persist && <PersistBadge p={o.persist} />}{o.site && <SiteBadge s={o.site} />}</div>
+            {routeDepts.length > 1 && <p className="small">담당이 다른 원인이 함께 감지됐습니다. 같은 요청서를 {routeDepts.join(', ')} 모두에 보내세요.</p>}
             <ul className="route-list">
-              {o.routes.map((r, i) => (
+              {o.routes.map((r) => (
                 <li key={r.cause}>
                   <div className="rowx">
-                    <RouteBadge route={r} /><b>{CAUSE_LABEL[r.cause]}</b>
-                    <label className="vh" htmlFor={`${uid}-dept-${i}`}>{CAUSE_LABEL[r.cause]} 담당 부서</label>
-                    <select className="krds-form-select small" id={`${uid}-dept-${i}`} value={o.depts[i]} onChange={(e) => setDept(i, e.target.value)}>
-                      {DEPTS.filter((d) => d !== '미배정').map((d) => <option key={d}>{d}</option>)}
-                    </select>
-                    {o.depts[i] !== r.dept && <span className="small">이관됨</span>}
+                    <RouteBadge route={r} /><b>{r.cause}</b><span className="small">기본 부서 {r.dept}</span>
                   </div>
                   <p className="small">{r.guide}</p>
                 </li>
@@ -104,8 +97,8 @@ export function ObservationDetail({ o, onUpdate, layout = 'panel', extra }: Prop
               <p className="small">감지 근거: 최근 7일 같은 원인 <b>{o.persist.n}회</b> · {o.persist.days}일째{o.persist.kind === '상습' ? ' · 사라졌다가 다시 나타남' : ''}</p>
             )}
             <div className="route-actions">
-              <button type="button" className="krds-btn small primary" onClick={deliver} disabled={o.action === '오탐 종결'}>
-                {o.action === '전달됨' || o.action === '해소 확인' ? '처리 요청서 다시 복사' : '처리 요청서 복사·전달'}
+              <button type="button" className="krds-btn small primary" onClick={deliver}>
+                {o.action !== '미처리' ? '처리 요청서 다시 복사' : '처리 요청서 복사·전달'}
               </button>
               {links.map((l) => <a key={l.url} className="krds-btn small secondary" href={l.url} target="_blank" rel="noreferrer">{l.label} 열기</a>)}
               <button type="button" className="krds-btn small tertiary" aria-expanded={fpOpen} onClick={() => setFpOpen(!fpOpen)}>오탐 처리</button>
@@ -121,18 +114,15 @@ export function ObservationDetail({ o, onUpdate, layout = 'panel', extra }: Prop
           </section>
         )}
         <div className="form">
-          {/* 처리 경로가 있으면 원인별 담당 부서는 위 처리 경로에서 바꾼다 */}
-          {!o.routes.length && <>
-            <label htmlFor={`${uid}-dept`}>담당 부서</label>
-            <select className="krds-form-select small" id={`${uid}-dept`} value={o.depts[0] ?? '미배정'} onChange={(e) => setDept(0, e.target.value)}>
-              {DEPTS.map((d) => <option key={d}>{d}</option>)}
-            </select>
-          </>}
+          <label htmlFor={`${uid}-dept`}>담당 부서</label>
+          <select className="krds-form-select small" id={`${uid}-dept`} value={o.dept} onChange={(e) => onUpdate({ dept: e.target.value }, `담당 부서: ${o.dept} → ${e.target.value}`)}>
+            {DEPTS.map((d) => <option key={d}>{d}</option>)}
+          </select>
           <label htmlFor={`${uid}-act`}>처리 상태</label>
           <select className="krds-form-select small" id={`${uid}-act`} value={o.action} onChange={(e) => onUpdate({ action: e.target.value as Action }, `처리 상태: ${e.target.value}`)}>
             {ACTIONS.map((a) => <option key={a}>{a}</option>)}
           </select>
-          {o.action === '전달됨' && <p className="full small">현장 개선: 새 관측 대기 (업무 종결과 별개로 다음 관측에서 확인)</p>}
+          {o.site === '새 관측 대기' && <p className="full small">현장 개선: 새 관측 대기 (업무 종결과 별개로 다음 관측에서 확인)</p>}
           <div className="full">
             <label className="vh" htmlFor={`${uid}-memo`}>처리 메모</label>
             <input className="krds-input small" id={`${uid}-memo`} value={memo} placeholder="처리 메모 (예: 운영사 수거 요청 접수번호)"

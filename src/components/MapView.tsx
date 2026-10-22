@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ACCENT, ACTIONS, DEPTS, OPEN_ACTIONS, CL_KIND, CL_PAVE, PASS, PASS_KEYS, PIN_COLOR, RANK, SORT_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
 import { dayDelta, kpiPred, siteCounts, spanLabel, trend as trendOf, type KpiKey } from '../lib/stats';
-import { compareObs, deptText, effPass, inPeriod, nodeName, pinKey, pinsOf, segById } from '../lib/segments';
+import { compareObs, effPass, inPeriod, nodeName, pinKey, pinsOf, segById } from '../lib/segments';
 import type { Action, Filters, Observation, ObservationPatch, Pass, Pin, SortKey, Source } from '../types';
 import { AreaBars, KpiCard, SectionTitle } from './Dashboard';
 import { RiskMap } from './map/RiskMap';
@@ -115,7 +115,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
             <option value="">전체 부서</option>{DEPTS.filter((d) => d !== '미배정').map((d) => <option key={d}>{d}</option>)}
           </select>
         </div>
-        <div className="fgroup"><h2>수집 경로</h2>{(['cctv', 'car'] as Source[]).map((s) => chk('src', s, s === 'car' ? '불법주정차 단속차량' : 'CCTV', obs.filter((o) => o.src === s && inPeriod(o, f.period)).length))}</div>
+        <div className="fgroup"><h2>수집 경로</h2>{(['cctv', 'car', 'upload'] as Source[]).map((s) => chk('src', s, s === 'car' ? '불법주정차 단속차량' : SRC_LABEL[s], obs.filter((o) => o.src === s && inPeriod(o, f.period)).length))}</div>
         {cctvList.length > 0 && (
           <div className="fgroup">
             <h2>교통 CCTV <span className="small">ITS · UTIC</span></h2>
@@ -163,7 +163,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
               <button key={p.key} type="button" className="qitem" style={{ ['--c' as string]: PIN_COLOR[p.pass].fill }} onClick={() => { setHoverPin(null); pickPin(p, true); }}
                 onMouseEnter={() => setHoverPin(p.key)} onMouseLeave={() => setHoverPin(null)} onFocus={() => setHoverPin(p.key)} onBlur={() => setHoverPin(null)}>
                 <span className="rk">{i + 1}</span><span className="pl">{p.obs.place}</span><Pill pass={p.pass} />
-                <span className="sub">{p.obs.area && <>{p.obs.area} · </>}{SRC_LABEL[p.obs.src]} {p.obs.dev} · {fmtTime(p.obs.t)} · {p.obs.risk == null ? '점수 없음' : <b className={`qrisk${p.obs.risk >= 80 ? ' hi' : ''}`}>{p.obs.risk}점</b>} · {p.obs.action}{p.obs.routes.length ? ` · ${deptText(p.obs)}` : ''}{p.obs.persist && p.obs.persist.kind !== '일시' ? ` · ${p.obs.persist.kind} ${p.obs.persist.n}회` : ''}</span>
+                <span className="sub">{p.obs.area && <>{p.obs.area} · </>}{SRC_LABEL[p.obs.src]} {p.obs.dev} · {fmtTime(p.obs.t)} · {p.obs.risk == null ? '점수 없음' : <b className={`qrisk${p.obs.risk >= 80 ? ' hi' : ''}`}>{p.obs.risk}점</b>} · {p.obs.action}{p.obs.dept !== '미배정' ? ` · ${p.obs.dept}` : ''}{p.obs.persist && p.obs.persist.kind !== '일시' ? ` · ${p.obs.persist.kind} ${p.obs.persist.n}회` : ''}{p.obs.site ? ` · ${p.obs.site}` : ''}</span>
               </button>
             )) : <p className="small">{f.q.trim() ? `'${f.q.trim()}'에 맞는 지점이 없습니다.` : '조건에 맞는 지점이 없습니다.'}</p>}
           </div>

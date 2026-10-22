@@ -367,3 +367,7 @@ main h1:focus{outline:none;box-shadow:none}
 .krds-badge.persist{white-space:nowrap;background:var(--krds-color-light-gray-10,#E6E8EA);color:var(--krds-color-light-gray-80,#33363D)}
 .krds-badge.persist-상습{background:var(--krds-color-light-danger-5,#FDEFEC);color:var(--krds-color-light-danger-60,#BD2C0F);font-weight:700}
 .krds-badge.persist-지속{background:var(--krds-color-light-warning-5,#FFF3DB);color:var(--krds-color-light-warning-70,#614100)}
+.krds-badge.site{white-space:nowrap;border:1px solid currentColor;background:transparent;font-weight:700}
+.site-done{color:var(--krds-color-light-success-60,#1F6B2E)}
+.site-again{color:var(--krds-color-light-danger-60,#BD2C0F)}
+.site-wait{color:var(--krds-color-light-gray-60,#6D7882)}
