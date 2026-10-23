@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { API_BASE, fetchObservations, reanalyze, review, setActions, toObservation, type AnalysisResponse } from '../api/client';
+import { addNote, API_BASE, ApiError, cancelReanalyze, cancelReview, fetchObservations, reanalyze, review, setActions, toObservation, type AnalysisResponse } from '../api/client';
 import { SEG_OF } from '../data/nodelink';
 import { SAMPLE_OBSERVATIONS } from '../data/observations';
 import type { HistoryEntry, Observation, ObservationPatch, Persistence, SiteCheck } from '../types';
@@ -100,6 +100,7 @@ function useSampleObservations() {
       save(next);
       return next;
     });
+    return null as string | null; // 백엔드 모드와 같은 형태 (안내 없음)
   }, []);
 
   return { observations, update, error: null as string | null };
@@ -129,9 +130,15 @@ function useApiObservations() {
         return { ...base, ...rest, seg, place: segPlace(seg) } as Raw;
       })), [rows]);
 
-  const update = useCallback(async (ids: string | string[], patch: ObservationPatch, logTxt?: string) => {
+  /** 백엔드에 반영한다. 지금은 할 수 없는 요청(409)이면 화면에 띄울 안내를 돌려준다 */
+  const update = useCallback(async (ids: string | string[], patch: ObservationPatch, logTxt?: string): Promise<string | null> => {
     const list = Array.isArray(ids) ? ids : [ids];
+    let notice: string | null = null;
     try {
+      // 메모: 처리 상태·검수와 별개로 저장 (상세 화면은 빈 patch + '메모: …'로 부른다)
+      if (!Object.keys(patch).length && logTxt?.startsWith('메모: ')) {
+        for (const id of list) await addNote(id, logTxt.slice('메모: '.length));
+      }
       if (patch.action !== undefined || patch.dept !== undefined) {
         // 처리 상태와 부서는 함께 저장된다. 한쪽만 바꾸면 다른 쪽은 현재 값을 유지
         const cur = rowsRef.current.find((a) => a.observation_id === list[0]);
@@ -140,16 +147,27 @@ function useApiObservations() {
         await setActions(list, action!, dept === '미배정' ? null : dept, logTxt);
       }
       if (patch.review !== undefined && patch.review !== '미검수') {
-        for (const id of list) await review(id, patch.human ?? null);
+        // 오탐 처리면 사유를 함께 보낸다
+        const comment = logTxt?.startsWith('오탐 처리: ') ? logTxt.slice('오탐 처리: '.length) : undefined;
+        for (const id of list) await review(id, patch.human ?? null, comment);
+      }
+      if (patch.review === '미검수') {
+        for (const id of list) await cancelReview(id);
       }
       if (patch.reanalyze === true) {
         for (const id of list) await reanalyze(id);
       }
-      // 사람 판정 취소·재분석 취소·메모·오탐 사유는 아직 백엔드에 저장하지 않는다 (백엔드 docs/FRONTEND_INTEGRATION.md 참고)
+      if (patch.reanalyze === false) {
+        for (const id of list) await cancelReanalyze(id);
+      }
     } catch (e) {
-      setError((e as Error).message);
+      if (e instanceof ApiError && e.status === 409) {
+        notice = patch.reanalyze === false ? '이미 분석이 시작돼 재분석 요청을 취소할 수 없습니다'
+          : patch.review === '미검수' ? '취소할 판정이 없습니다' : '지금은 처리할 수 없는 요청입니다';
+      } else setError((e as Error).message);
     }
     await refresh();
+    return notice;
   }, [refresh]);
 
   return { observations, update, error };

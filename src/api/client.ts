@@ -11,7 +11,10 @@ export interface AnalysisResponse {
   observation_id: string;
   analysis_id: string | null;
   site_id: string;
+  /** 구간 대표 위치 (같은 구간 관측은 같은 좌표 → 화면에서 한 지점으로 묶인다) */
   location: { latitude: number; longitude: number } | null;
+  /** 사진 촬영 좌표 (없으면 null) */
+  capture_location?: { latitude: number; longitude: number } | null;
   captured_at: string;
   processing_status: 'pending' | 'processing' | 'completed' | 'failed';
   passability: ApiPass | null;
@@ -37,12 +40,17 @@ export interface AnalysisResponse {
 
 export const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) || undefined;
 
+/** 응답 코드를 함께 담은 오류 (409 같은 '지금은 할 수 없음'을 연결 실패와 구분한다) */
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) { super(message); }
+}
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
   });
-  if (!res.ok) throw new Error(`${path} 요청 실패 (${res.status})`);
+  if (!res.ok) throw new ApiError(`${path} 요청 실패 (${res.status})`, res.status);
   return res.json();
 }
 
@@ -59,15 +67,26 @@ export const setActions = (ids: string[], action: Action, dept: string | null, n
     body: JSON.stringify({ observation_ids: ids, state: ACTION_CODE[action], dept, content: note, actor: '교통행정과' }),
   });
 
-export const review = (id: string, human: Pass | null) =>
+/** 사람 판정. comment는 오탐 사유 등 (백엔드 history에 '판정 수정 → … · 사유'로 남는다) */
+export const review = (id: string, human: Pass | null, comment?: string) =>
   call<AnalysisResponse>(`/observations/${id}/reviews`, {
     method: 'POST',
     body: JSON.stringify(human
-      ? { status: 'corrected', human_passability: human === 'hold' ? 'undetermined' : human, reviewer: '교통행정과' }
-      : { status: 'confirmed', reviewer: '교통행정과' }),
+      ? { status: 'corrected', human_passability: human === 'hold' ? 'undetermined' : human, comment, reviewer: '교통행정과' }
+      : { status: 'confirmed', comment, reviewer: '교통행정과' }),
   });
+/** 판정 취소 → 미검수 (검수가 없으면 409) */
+export const cancelReview = (id: string) =>
+  call<AnalysisResponse>(`/observations/${id}/reviews/cancel`, { method: 'POST', body: JSON.stringify({ reviewer: '교통행정과' }) });
 
 export const reanalyze = (id: string) => call<AnalysisResponse>(`/observations/${id}/reanalyze`, { method: 'POST', body: '{}' });
+/** 재분석 요청 취소 (시작 전일 때만. 이미 분석 중이면 409) */
+export const cancelReanalyze = (id: string) =>
+  call<AnalysisResponse>(`/observations/${id}/reanalyze/cancel`, { method: 'POST', body: '{}' });
+
+/** 메모 (처리 상태·검수는 바꾸지 않고 history에 '메모: …'로 남는다) */
+export const addNote = (id: string, content: string) =>
+  call<unknown>(`/observations/${id}/notes`, { method: 'POST', body: JSON.stringify({ content, author: '교통행정과' }) });
 
 const toPass = (p: ApiPass | null): Pass => (p === null || p === 'undetermined' ? 'hold' : p);
 const COND: Condition[] = ['night', 'rain', 'occluded', 'mixed'];
