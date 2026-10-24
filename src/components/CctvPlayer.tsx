@@ -10,14 +10,19 @@ export function CctvPlayer({ cctv }: { cctv: Cctv }) {
 function ItsVideo({ cctv }: { cctv: Cctv }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [err, setErr] = useState('');
+  const [url, setUrl] = useState('');
+  const [showUrl, setShowUrl] = useState(false);
+  const [copied, setCopied] = useState(false);
   useEffect(() => {
     const v = ref.current; if (!v) return;
     let hls: Hls | null = null, alive = true;
-    setErr('');
+    setErr(''); setUrl(''); setCopied(false);
     // 영상 주소는 시간이 지나면 바뀌므로 열 때마다 새 주소를 받는다
-    itsStreamUrl(cctv).then((src) => {
+    itsStreamUrl(cctv).then((r) => {
       if (!alive) return;
-      if (!src) { setErr('영상 주소를 받지 못했습니다.'); return; }
+      if ('error' in r) { setErr(r.error); return; }
+      const src = r.hls;
+      setUrl(src);
       if (Hls.isSupported()) {
         hls = new Hls({ liveDurationInfinity: true });
         hls.on(Hls.Events.ERROR, (_e, d) => { if (d.fatal) setErr('영상을 불러오지 못했습니다. 카메라 점검 중이거나 일시적으로 끊겼을 수 있습니다.'); });
@@ -29,11 +34,28 @@ function ItsVideo({ cctv }: { cctv: Cctv }) {
     });
     return () => { alive = false; hls?.destroy(); v.removeAttribute('src'); v.load(); };
   }, [cctv]);
+  const copy = () => navigator.clipboard.writeText(url).then(() => setCopied(true), () => setCopied(false));
   return (
-    <div className="cctv-stage">
-      <video ref={ref} className="cctv-video" controls muted playsInline autoPlay aria-label={`${cctv.name} 실시간 영상`} />
-      {err && <p className="cctv-err" role="alert">{err}</p>}
-    </div>
+    <>
+      <div className="cctv-stage">
+        <video ref={ref} className="cctv-video" controls muted playsInline autoPlay aria-label={`${cctv.name} 실시간 영상`} />
+        {err && <p className="cctv-err" role="alert">{err}</p>}
+      </div>
+      {/* 개발자용: 지금 HLS 주소 (시간이 지나면 바뀐다) */}
+      {url && (
+        <div className="cctv-url">
+          <button type="button" className="krds-btn xsmall tertiary" aria-expanded={showUrl} onClick={() => setShowUrl((s) => !s)}>
+            영상 주소 {showUrl ? '닫기' : '보기'}
+          </button>
+          {showUrl && (
+            <>
+              <code>{url}</code>
+              <button type="button" className="krds-btn xsmall secondary" onClick={copy}>{copied ? '복사됨' : '복사'}</button>
+            </>
+          )}
+        </div>
+      )}
+    </>
   );
 }
 

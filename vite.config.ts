@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv, type Plugin, type ProxyOptions } from 'vite';
 import react from '@vitejs/plugin-react';
+import { itsList, itsStream } from './api/_its';
 import { roadTile } from './api/_roads';
 
 /**
@@ -85,38 +86,15 @@ function uticPlayer(key: string): Plugin {
 }
 
 /**
- * ITS 국가교통정보센터 CCTV (키: .env의 ITS_API_KEY, 응답에는 넣지 않는다)
- * - /api/its/cctvs : 전국 고속도로(ex)·국도(its) CCTV 위치. 전국 응답은 약 4MB·30초라 처음 요청 때 받아 6시간 캐시한다.
- *                    영상 주소는 빼고 보낸다 (시간이 지나면 바뀌고 용량만 크다).
- * - /api/its/stream?type=&name=&lat=&lng= : 카메라를 열 때 그 주변만 다시 조회해 지금의 HLS 주소를 준다.
- * 영상은 등록 IP 제한 없이 브라우저에서 바로 재생된다. 배포할 때는 같은 경로를 백엔드가 처리해야 한다.
+ * ITS 국가교통정보센터 CCTV (키: .env의 ITS_API_KEY, 응답에는 넣지 않는다). 배포 환경의 api/its/*와 같은 동작.
+ * - /api/its/cctvs : 전국 고속도로·국도 CCTV 위치. 약 30초 걸려 처음 요청 때 받아 6시간 캐시한다.
+ * - /api/its/stream?type=&name=&lat=&lng= : 카메라를 열 때 지금의 HLS 주소를 준다.
  */
 function itsCctv(key: string): Plugin {
-  const KOREA = { minX: 124, maxX: 132, minY: 33, maxY: 39 };
-  type Raw = { cctvname: string; coordx: number | string; coordy: number | string; cctvurl: string };
-  const query = async (type: 'ex' | 'its', b: typeof KOREA): Promise<Raw[]> => {
-    const q = new URLSearchParams({ apiKey: key, type, cctvType: '4', getType: 'json', ...Object.fromEntries(Object.entries(b).map(([k, v]) => [k, String(v)])) });
-    const r = await fetch(`https://openapi.its.go.kr:9443/cctvInfo?${q}`);
-    const j = await r.json();
-    // 결과가 1개면 배열이 아니라 객체 하나로 온다
-    const d = j?.response?.data;
-    return Array.isArray(d) ? d : d ? [d] : [];
-  };
   let cache: { at: number; body: string } | null = null;
   let loading: Promise<string> | null = null;
-  const loadAll = () => (loading ??= Promise.all((['ex', 'its'] as const).map(async (type) => (await query(type, KOREA)).map((d) => ({
-    id: `its-${type}-${(+d.coordy).toFixed(5)},${(+d.coordx).toFixed(5)}`,
-    name: String(d.cctvname).replace(/^\[[^\]]+\]\s*/, ''),
-    center: String(d.cctvname).match(/^\[([^\]]+)\]/)?.[1] ?? '',
-    road: type === 'ex' ? '고속도로' : '국도',
-    lat: +d.coordy, lng: +d.coordx, src: 'its', its: { type, name: String(d.cctvname) },
-  }))))
-    .then(([ex, its]) => {
-      if (!ex.length && !its.length) throw new Error('ITS에서 CCTV 목록을 받지 못했습니다');
-      const body = JSON.stringify({ source: 'ITS 국가교통정보센터', cctvs: [...ex, ...its] });
-      cache = { at: Date.now(), body };
-      return body;
-    })
+  const loadAll = () => (loading ??= itsList(key)
+    .then((body) => { cache = { at: Date.now(), body }; return body; })
     .finally(() => { loading = null; }));
   return {
     name: 'its-cctv',
@@ -135,17 +113,9 @@ function itsCctv(key: string): Plugin {
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         try {
           if (!key) throw new Error('.env에 ITS_API_KEY가 없습니다');
-          const p = new URL((req as { url?: string }).url ?? '', 'http://x').searchParams;
-          const type = p.get('type'), name = p.get('name') ?? '', lat = Number(p.get('lat')), lng = Number(p.get('lng'));
-          if ((type !== 'ex' && type !== 'its') || !Number.isFinite(lat) || !Number.isFinite(lng)) { res.statusCode = 400; res.end('{"error":"요청 값이 올바르지 않습니다"}'); return; }
-          const d = 0.003;
-          const list = await query(type, { minX: lng - d, maxX: lng + d, minY: lat - d, maxY: lat + d });
-          const dist = (c: Raw) => Math.hypot(+c.coordy - lat, +c.coordx - lng);
-          const hit = list.filter((c) => c.cctvname === name).sort((a, b) => dist(a) - dist(b))[0] ?? list.sort((a, b) => dist(a) - dist(b))[0];
-          if (!hit) throw new Error('카메라를 찾지 못했습니다');
-          res.end(JSON.stringify({ hls: hit.cctvurl }));
+          res.end(await itsStream(key, new URL((req as { url?: string }).url ?? '', 'http://x').searchParams));
         } catch (e) {
-          res.statusCode = 502;
+          res.statusCode = e instanceof RangeError ? 400 : 502;
           res.end(JSON.stringify({ error: (e as Error).message }));
         }
       });

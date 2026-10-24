@@ -1,5 +1,6 @@
 {
   "regions": ["icn1"],
+  "functions": { "api/its/cctvs.ts": { "maxDuration": 60 } },
   "rewrites": [
     { "source": "/vworld/wmts/:path*", "destination": "/api/vworld?path=:path*" }
   ]

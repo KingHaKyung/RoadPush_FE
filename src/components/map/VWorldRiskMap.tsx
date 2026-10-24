@@ -47,7 +47,6 @@ const CCTV_ZOOM = 12;
 /** 교통 CCTV 표시 (카메라 모양, 판정 핀과 구분) */
 const CCTV_ICON = '<svg viewBox="0 0 26 26" width="26" height="26" aria-hidden="true"><rect x="1" y="1" width="24" height="24" rx="6"/><path d="M6 9.5h9.5a1 1 0 0 1 1 1V12l3.5-2v6l-3.5-2v1.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1z" fill="#fff"/></svg>';
 const STATIC_IDS = new Set(SEGMENTS.map((s) => s.id));
-const BASE_KEY = 'roadpush.basemap';
 
 /** CSS 토큰(라이트·다크)에서 도로 색을 읽는다 */
 const esc = (t: string) => t.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -69,10 +68,6 @@ function panIfNeeded(m: L.Map, ll: L.LatLngExpression) {
   if (pt.x < 60 || pt.x > size.x - 60 || pt.y < 100 || pt.y > size.y - 40) m.panTo(ll);
 }
 
-function readBase(): boolean {
-  try { return localStorage.getItem(BASE_KEY) !== 'off'; } catch { return true; }
-}
-
 /** 브이월드 프록시가 있으면 쓰는 지도: 표준노드링크 도로를 직접 그리고 브이월드는 옅은 배경으로 */
 export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin, cctvRoads, onPickCctv, selected, onSelect, focusKey, onError }: RiskMapProps & { tileBase: string; onError: (msg: string) => void }) {
   const el = useRef<HTMLDivElement>(null);
@@ -90,7 +85,6 @@ export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin
   const markers = useRef(new Map<string, L.Marker>());
   const [ready, setReady] = useState(false);
   const [zoom, setZoom] = useState(ALL_ZOOM);
-  const [base, setBase] = useState(readBase);
   const [note, setNote] = useState<string | null>(null);
   /** 도로중심선을 불러와 링크에 실제 도로폭이 붙었는지 (위험 구간 굵기를 다시 계산) */
   const [widths, setWidths] = useState(false);
@@ -108,7 +102,8 @@ export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin
       minZoom: 7, maxZoom: 19, attribution: '배경지도 © 브이월드(국토교통부)',
     })
       .on('tileload', () => { loaded++; })
-      .on('tileerror', () => { if (++failed >= 6 && !loaded) onError('브이월드 배경지도를 불러오지 못했습니다'); });
+      .on('tileerror', () => { if (++failed >= 6 && !loaded) onError('브이월드 배경지도를 불러오지 못했습니다'); })
+      .addTo(m);
     // 도로 테두리 < 도로 < 위험 구간 < 라벨 순으로 겹친다
     for (const [name, z] of [['road-edge', 404], ['road', 405], ['risk', 420], ['labels', 450], ['cctv', 560]] as const) m.createPane(name).style.zIndex = String(z);
     m.getPane('labels')!.style.pointerEvents = 'none';
@@ -122,13 +117,6 @@ export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin
     setReady(true);
     return () => { m.remove(); map.current = null; setReady(false); };
   }, [tileBase, onError]);
-
-  // 배경지도 켜기·끄기
-  useEffect(() => {
-    const m = map.current, t = tilesRef.current; if (!ready || !m || !t) return;
-    if (base) t.addTo(m); else t.remove();
-    try { localStorage.setItem(BASE_KEY, base ? 'on' : 'off'); } catch { /* 저장 못 해도 화면은 그대로 */ }
-  }, [ready, base]);
 
   // 도로망: 예시 지역 + 화면에 걸친 전국 타일. 도로명 라벨도 함께
   useEffect(() => {
@@ -387,10 +375,7 @@ export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin
 
   return (
     <>
-      <div ref={el} className={`vworld-map${base ? '' : ' no-base'}`} aria-label="관측 지점 지도" />
-      <button type="button" className="krds-btn xsmall tertiary map-base-btn" aria-pressed={base} onClick={() => setBase((v) => !v)}>
-        배경지도 {base ? '끄기' : '켜기'}
-      </button>
+      <div ref={el} className="vworld-map" aria-label="관측 지점 지도" />
       {note && <div className="map-note" role="status">{note}</div>}
     </>
   );

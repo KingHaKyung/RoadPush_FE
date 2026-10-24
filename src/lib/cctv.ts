@@ -1,5 +1,5 @@
 // 교통 CCTV 위치 (전국)
-// - ITS 국가교통정보센터: 개발 서버 /api/its/cctvs (고속도로·국도. 영상 주소는 열 때 /api/its/stream으로 받는다. 키는 서버에만)
+// - ITS 국가교통정보센터: /api/its/cctvs (개발 서버·Vercel 함수. 고속도로·국도. 영상 주소는 열 때 /api/its/stream으로 받는다. 키는 서버에만)
 // - 도시교통정보센터(UTIC): scripts/build-cctv.mjs가 만든 public/cctv/utic.json (키 없음)
 // 두 곳에 같은 카메라가 있으면 ITS를 쓴다 (등록 IP 제한 없이 재생되므로)
 // 고속도로·국도(CCTV_HIGHWAY)를 끄면 ITS는 부르지 않고 UTIC 일반도로만 쓴다
@@ -52,14 +52,14 @@ export function loadCctvs(): Promise<Cctv[]> {
   return p;
 }
 
-/** ITS 카메라의 지금 HLS 영상 주소 (주소는 시간이 지나면 바뀌어 열 때마다 받는다) */
-export async function itsStreamUrl(c: Cctv): Promise<string | null> {
-  if (!c.its) return null;
+/** ITS 카메라의 지금 HLS 영상 주소 (주소는 시간이 지나면 바뀌어 열 때마다 받는다). 못 받으면 이유를 error에 */
+export async function itsStreamUrl(c: Cctv): Promise<{ hls: string } | { error: string }> {
+  if (!c.its) return { error: 'ITS 카메라가 아닙니다' };
   const q = new URLSearchParams({ type: c.its.type, name: c.its.name, lat: String(c.lat), lng: String(c.lng) });
   try {
     const j = await (await fetch(`/api/its/stream?${q}`)).json();
-    return typeof j?.hls === 'string' ? j.hls : null;
-  } catch { return null; }
+    return typeof j?.hls === 'string' ? { hls: j.hls } : { error: j?.error ?? '영상 주소를 받지 못했습니다' };
+  } catch { return { error: '영상 주소를 받지 못했습니다' }; }
 }
 
 /** UTIC 영상 재생 페이지 (개발 서버·백엔드가 UTIC 재생 주소로 보내 준다) */
