@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv, type Plugin, type ProxyOptions } from 'vite';
 import react from '@vitejs/plugin-react';
+import { roadTile } from './api/_roads';
 
 /**
  * krds-uiux 1.1.0의 component.css는 아이콘을 '../../img/img/component/...'로 가리키지만
@@ -152,15 +153,40 @@ function itsCctv(key: string): Plugin {
   };
 }
 
+/**
+ * /api/roads?t= : 표준노드링크 도로 타일을 브이월드 데이터 API에서 받는다 (배포 환경의 api/roads.ts와 같은 동작).
+ * public/nodelink/가 있으면 화면은 그 파일을 먼저 쓴다.
+ */
+function vworldRoads(key: string, domain: string): Plugin {
+  return {
+    name: 'vworld-roads',
+    configureServer(server) {
+      server.middlewares.use('/api/roads', async (req, res) => {
+        const t = new URL((req as { url?: string }).url ?? '', 'http://x').searchParams.get('t') ?? '';
+        try {
+          if (!key) throw new Error('.env에 VWORLD_KEY가 없습니다');
+          const body = await roadTile(t, key, domain);
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(body);
+        } catch (e) {
+          res.statusCode = e instanceof RangeError ? 400 : 502;
+          res.end((e as Error).message);
+        }
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   const vworldKey = (env.VWORLD_KEY ?? '').trim();
   const uticKey = (env.UTIC_API_KEY ?? '').trim();
   const itsKey = (env.ITS_API_KEY ?? '').trim();
   return {
-    plugins: [krdsImgPath, uticPlayer(uticKey), itsCctv(itsKey), react()],
+    plugins: [krdsImgPath, uticPlayer(uticKey), itsCctv(itsKey), vworldRoads(vworldKey, (env.VWORLD_REFERER ?? 'https://road-push-fe.vercel.app/').replace(/\/$/, '')), react()],
     // 키 값이 아니라 '프록시가 켜져 있는지'만 브라우저에 알린다
-    define: { 'import.meta.env.VITE_VWORLD_PROXY': JSON.stringify(vworldKey ? '/vworld/wmts' : '') },
+    // Vercel에서는 api/vworld.ts가 실행할 때 키를 읽으므로, 빌드 때 키가 없어도 프록시를 켠다
+    define: { 'import.meta.env.VITE_VWORLD_PROXY': JSON.stringify(vworldKey || env.VERCEL ? '/vworld/wmts' : '') },
     server: {
       port: 5173,
       proxy: vworldProxy(vworldKey),
