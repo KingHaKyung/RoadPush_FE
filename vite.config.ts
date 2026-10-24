@@ -185,7 +185,8 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [krdsImgPath, uticPlayer(uticKey), itsCctv(itsKey), vworldRoads(vworldKey, (env.VWORLD_REFERER ?? 'https://road-push-fe.vercel.app/').replace(/\/$/, '')), react()],
     // 키 값이 아니라 '프록시가 켜져 있는지'만 브라우저에 알린다
-    define: { 'import.meta.env.VITE_VWORLD_PROXY': JSON.stringify(vworldKey ? '/vworld/wmts' : '') },
+    // Vercel에서는 api/vworld.ts가 실행할 때 키를 읽으므로, 빌드 때 키가 없어도 프록시를 켠다
+    define: { 'import.meta.env.VITE_VWORLD_PROXY': JSON.stringify(vworldKey || env.VERCEL ? '/vworld/wmts' : '') },
     server: {
       port: 5173,
       proxy: vworldProxy(vworldKey),
