@@ -197,7 +197,6 @@ aside.drawer{position:fixed;top:0;right:0;bottom:0;width:min(460px,100%);backgro
 .map-station i{position:absolute;width:12px;height:12px;left:-6px;top:-6px;border-radius:50%;background:var(--surface);border:3px solid var(--accent);box-sizing:border-box}
 .map-station span{position:absolute;left:10px;top:4px;white-space:nowrap;font:700 12.5px/1 var(--f-body);color:var(--ink);
   text-shadow:0 0 2px var(--block),0 0 2px var(--block),0 0 3px var(--block),0 0 4px var(--block)}
-.map-base-btn{position:absolute;z-index:1000;right:10px;top:90px}
 /* 관측 핀 */
 .pin{position:relative;cursor:pointer}
 .pin svg{display:block;overflow:visible;filter:drop-shadow(0 0 .6px rgba(0,0,0,.55)) drop-shadow(0 1px 1.5px rgba(0,0,0,.3));transition:transform .12s;transform-origin:50% 100%}
