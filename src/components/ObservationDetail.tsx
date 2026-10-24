@@ -56,7 +56,7 @@ export function ObservationDetail({ o, onUpdate, layout = 'panel', extra }: Prop
         {road && !road.cl && (
           <dl className="facts od-road">
             <dt>가까운 도로</dt>
-            <dd>{road.road} <span className="small">({RANK[road.rank] ?? road.rank} · {road.lanes}차로{road.width ? ` · 도로폭 ${road.width}m` : ''})</span></dd>
+            <dd>{road.road} <span className="small">({RANK[road.rank] ?? road.rank}{road.lanes ? ` · ${road.lanes}차로` : ''}{road.width ? ` · 도로폭 ${road.width}m` : ''})</span></dd>
             <dt>링크 · 관측</dt><dd className="small">{road.id} · {o.id}</dd>
           </dl>
         )}

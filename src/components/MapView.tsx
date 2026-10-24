@@ -178,7 +178,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
             <button type="button" className="krds-btn small text back" onClick={() => selectSeg(null)}>← 우선 점검 지점</button>
             <div className="dh">
               <div className="rowx"><h3>{sg.road}</h3><Pill pass={list.length ? effPass(list[0]) : 'none'} /></div>
-              <div className="meta"><span>{sg.cl ? '연속수치지형도 도로중심선' : `${nodeName(sg.a)} → ${nodeName(sg.b)}`}</span></div>
+              <div className="meta"><span>{sg.cl ? '연속수치지형도 도로중심선' : sg.a ? `${nodeName(sg.a)} → ${nodeName(sg.b)}` : '표준노드링크'}</span></div>
             </div>
             {sg.cl ? (
               <>
@@ -195,10 +195,10 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
             ) : (
               <dl className="facts">
                 <dt>링크 ID</dt><dd>{sg.id}</dd><dt>길이</dt><dd>{sg.len}m</dd>
-                <dt>차로 · 제한속도</dt><dd>{sg.lanes}차로 · {sg.spd}km/h</dd>
+                {sg.lanes ? <><dt>차로 · 제한속도</dt><dd>{sg.lanes}차로 · {sg.spd}km/h</dd></> : <><dt>제한속도</dt><dd>{sg.spd}km/h</dd></>}
                 {sg.width && <><dt>도로폭</dt><dd>{sg.width}m <span className="small">(연속수치지형도)</span></dd></>}
                 <dt>도로 등급</dt><dd>{RANK[sg.rank] ?? sg.rank}</dd>
-                <dt>노드</dt><dd className="small">{sg.a} → {sg.b}</dd>
+                {sg.a && <><dt>노드</dt><dd className="small">{sg.a} → {sg.b}</dd></>}
               </dl>
             )}
             {cur ? obsList : !sg.cl && <p className="small">이 도로 근처에는 아직 수집된 관측이 없습니다.</p>}
