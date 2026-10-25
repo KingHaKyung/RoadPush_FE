@@ -1,7 +1,7 @@
 import { API_BASE } from '../api/client';
 import type { Action, Pass, Period, Route, RouteType, SortKey, Source } from '../types';
 
-/** 판정 이름과 글자색(KRDS -60 텍스트 토큰). 지도 핀 색은 PIN_COLOR */
+/** 판정 이름과 글자색(app.css 판정 토큰). 지도 핀 색은 PIN_COLOR */
 export const PASS: Record<Pass, { label: string; color: string }> = {
   blocked: { label: '단절', color: 'var(--blocked)' },
   narrowed: { label: '좁아짐', color: 'var(--narrow)' },
@@ -10,25 +10,15 @@ export const PASS: Record<Pass, { label: string; color: string }> = {
 };
 export const PASS_KEYS = Object.keys(PASS) as Pass[];
 /**
- * 지도 핀·묶음 색: KRDS element 토큰 (krds_tokens.css, light).
- * 단절 element-danger(danger-50) · 좁아짐 element-warning(warning-30) · 통과 가능 element-success(success-50) · 판단 유보 gray-50
- * ink는 그 위 글자색 (warning-30은 밝아서 gray-90)
+ * 지도 핀·묶음·막대 색. 인디고 포인트 색과 채도를 맞춘 판정 색 (app.css --c-* 와 같은 값).
+ * ink는 그 위 글자색 (앰버는 밝아서 어두운 글자)
  */
 export const PIN_COLOR: Record<Pass, { fill: string; ink: string }> = {
-  blocked: { fill: '#DE3412', ink: '#FFFFFF' },
-  narrowed: { fill: '#FFB114', ink: '#1E2124' },
-  passable: { fill: '#228738', ink: '#FFFFFF' },
-  hold: { fill: '#6D7882', ink: '#FFFFFF' },
+  blocked: { fill: '#E25563', ink: '#FFFFFF' },
+  narrowed: { fill: '#F2A93B', ink: '#2A2214' },
+  passable: { fill: '#2BA884', ink: '#FFFFFF' },
+  hold: { fill: '#8B8FA8', ink: '#FFFFFF' },
 };
-/** 지표 카드·목록 강조색 (KRDS 시스템 색, 흰 바탕에서 큰 숫자·선으로 읽히는 톤) */
-export const ACCENT = {
-  danger: 'var(--krds-color-light-danger-50)',
-  warning: 'var(--krds-color-light-warning-50)',
-  success: 'var(--krds-color-light-success-50)',
-  info: 'var(--krds-color-light-information-50)',
-  primary: 'var(--krds-color-light-primary-50)',
-  gray: 'var(--krds-color-light-gray-60)',
-} as const;
 export const ACTIONS: Action[] = ['미처리', '현장점검 요청', '조치 중', '조치 완료'];
 /** 아직 끝나지 않은 상태 (우선 점검 목록에 남는다) */
 export const OPEN_ACTIONS: Action[] = ['미처리', '현장점검 요청', '조치 중'];

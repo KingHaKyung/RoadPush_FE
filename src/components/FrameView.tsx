@@ -47,10 +47,10 @@ export function FrameView({ o, overlay }: { o: Observation; overlay: boolean }) 
         </>
       ) : (
         <>
-          <polygon points={walk} fill="#228738" fillOpacity=".38" />
+          <polygon points={walk} fill="#2BA884" fillOpacity=".38" />
           {occ > 0 && o.occ != null && (
             <>
-              <rect x={L(y0)} y={y0 - 46} width={ow} height="50" fill="#DE3412" fillOpacity=".42" stroke="#fff" strokeWidth="1.5" />
+              <rect x={L(y0)} y={y0 - 46} width={ow} height="50" fill="#E25563" fillOpacity=".42" stroke="#fff" strokeWidth="1.5" />
               <line x1={L(y0) + ow} y1={y0 + 8} x2={R(y0)} y2={y0 + 8} stroke="#fff" strokeWidth="2" />
               <rect x="8" y="8" width="84" height="22" rx="3" fill="#000" fillOpacity=".6" />
               <text x="16" y="23" fill="#fff" fontSize="12">점유 면적 {o.occ}%</text>

@@ -11,13 +11,14 @@
   --krds-color-light-primary-80:#292A66; --krds-color-light-primary-90:#1A1B42; --krds-color-light-primary-95:#11122C;
   --bg:#F3F4FA; --surface:var(--krds-light-color-background-white); --sunk:#F6F6FB;
   --shadow:0 1px 2px rgba(40,42,90,.04),0 6px 20px rgba(40,42,90,.06); --shadow-hi:0 2px 4px rgba(40,42,90,.06),0 12px 32px rgba(40,42,90,.12);
-  --ink:var(--krds-light-color-text-basic); --muted:var(--krds-light-color-text-subtle); --faint:var(--krds-color-light-gray-50);
-  --line:var(--krds-color-light-gray-20); --line-soft:var(--krds-color-light-gray-10);
+  /* 글자·선: 인디고와 어울리게 살짝 푸른 회색 */
+  --ink:#1F2033; --muted:#5C5F77; --faint:#878AA0; --line:#E2E3EE; --line-soft:#ECEDF5;
   --accent:var(--krds-color-light-primary-50); --accent-hover:var(--krds-color-light-primary-60); --accent-ink:#FFFFFF;
   --accent-text:var(--krds-color-light-primary-60); --accent-soft:var(--krds-color-light-primary-5);
-  /* 판정 글자: KRDS danger-60·warning-60·success-60·gray-60 (지도 핀 색은 constants.ts PIN_COLOR) */
-  --blocked:var(--krds-color-light-danger-60); --narrow:var(--krds-color-light-warning-60); --pass:var(--krds-color-light-success-60); --hold:var(--krds-color-light-gray-60);
-  --road:#FFFFFF; --road-edge:var(--krds-color-light-gray-20); --block:var(--krds-color-light-gray-10); --park:#D8E9D8;
+  /* 판정 색 한 벌: 글자(흰 바탕 4.5:1 이상) · 옅은 배경. 지도 핀 채움색은 constants.ts PIN_COLOR */
+  --blocked:#C93D4D; --narrow:#9A6400; --pass:#1C7F62; --hold:#5F637A;
+  --blocked-soft:#FDECEE; --narrow-soft:#FEF3E0; --pass-soft:#E4F5EF; --hold-soft:#EEEFF5;
+  --road:#FFFFFF; --road-edge:#DADCE8; --block:#ECEDF4; --park:#DCEBE4;
   --frame-sky:#CDD1D5; --frame-bld:#B1B8BE; --frame-road:#6D7882; --frame-walk:#B9B2A6;
   --scrim:rgba(19,20,22,.45);
   --f-body:'Pretendard GOV','Pretendard',-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
@@ -26,17 +27,19 @@
   --fs-xs:12px; --fs-s:13px; --fs-m:14px; --fs-body:15px; --fs-l:16px; --fs-xl:20px; --fs-2xl:28px;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#121320; --surface:#1C1D2B; --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25); --shadow-hi:0 12px 32px rgba(0,0,0,.45); --sunk:#131416; --ink:#F4F5F6; --muted:#CDD1D5; --faint:#B1B8BE; --line:#464C53; --line-soft:#33363D;
+  --bg:#121320; --surface:#1C1D2B; --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25); --shadow-hi:0 12px 32px rgba(0,0,0,.45); --sunk:#161725; --ink:#ECECF5; --muted:#B7B9CC; --faint:#8E91A8; --line:#34364A; --line-soft:#272939;
   --accent:#7B7EE6; --accent-hover:#9597EC; --accent-ink:#FFFFFF; --accent-text:#C7C8F3; --accent-soft:#22234A;
-  --blocked:#F48771; --narrow:#FFC95C; --pass:#7EC88E; --hold:#B1B8BE;
-  --road:#33363D; --road-edge:#464C53; --block:#1A1C1F; --park:#1F2B22;
+  --blocked:#F07C86; --narrow:#F5C063; --pass:#4FC79E; --hold:#A3A6BE;
+  --blocked-soft:#3A1F27; --narrow-soft:#3A2E17; --pass-soft:#163328; --hold-soft:#26283A;
+  --road:#2A2C3D; --road-edge:#34364A; --block:#171826; --park:#1A2A24;
   --frame-sky:#464C53; --frame-bld:#33363D; --frame-road:#2B2F34; --frame-walk:#5A5650;
   --scrim:rgba(0,0,0,.6); color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#121320; --surface:#1C1D2B; --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25); --shadow-hi:0 12px 32px rgba(0,0,0,.45); --sunk:#131416; --ink:#F4F5F6; --muted:#CDD1D5; --faint:#B1B8BE; --line:#464C53; --line-soft:#33363D;
+  --bg:#121320; --surface:#1C1D2B; --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25); --shadow-hi:0 12px 32px rgba(0,0,0,.45); --sunk:#161725; --ink:#ECECF5; --muted:#B7B9CC; --faint:#8E91A8; --line:#34364A; --line-soft:#272939;
   --accent:#7B7EE6; --accent-hover:#9597EC; --accent-ink:#FFFFFF; --accent-text:#C7C8F3; --accent-soft:#22234A;
-  --blocked:#F48771; --narrow:#FFC95C; --pass:#7EC88E; --hold:#B1B8BE;
-  --road:#33363D; --road-edge:#464C53; --block:#1A1C1F; --park:#1F2B22;
+  --blocked:#F07C86; --narrow:#F5C063; --pass:#4FC79E; --hold:#A3A6BE;
+  --blocked-soft:#3A1F27; --narrow-soft:#3A2E17; --pass-soft:#163328; --hold-soft:#26283A;
+  --road:#2A2C3D; --road-edge:#34364A; --block:#171826; --park:#1A2A24;
   --frame-sky:#464C53; --frame-bld:#33363D; --frame-road:#2B2F34; --frame-walk:#5A5650;
   --scrim:rgba(0,0,0,.6); color-scheme:dark}
 *{box-sizing:border-box}
@@ -63,7 +66,7 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background
 .top-nav .btn-tab{display:inline-flex;align-items:center;padding:0 14px;gap:6px;text-decoration:none}
 .status-line{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:var(--fs-s);color:var(--faint)}
 .live{display:inline-flex;align-items:center;gap:6px}
-.live::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--krds-color-light-success-50)}
+.live::before{content:"";width:8px;height:8px;border-radius:50%;background:#2BA884}
 
 /* KRDS 컴포넌트 위에 얹는 배치만 */
 .fcheck > label{display:flex;width:100%}
@@ -71,7 +74,14 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background
 .chip-group{display:flex;flex-wrap:wrap;gap:6px}
 /* 판정 배지: 다섯 라벨(단절·좁아짐·통과 가능·판단 유보·관측 없음)이 같은 너비 */
 /* KRDS 라벨 최소 크기(label-xsmall 13px)·굵게, 너비는 가장 긴 '통과 가능'에 맞춤 */
-.krds-badge.pill{width:4.8em;flex:none;white-space:nowrap;font-size:var(--krds-pc-font-size-label-xsmall,13px);font-weight:700;letter-spacing:-.01em;padding:0 6px}
+.krds-badge.pill{width:4.8em;flex:none;white-space:nowrap;font-size:var(--krds-pc-font-size-label-xsmall,13px);font-weight:700;letter-spacing:-.01em;padding:0 6px;border:0}
+.pill-blocked{background:var(--blocked-soft);color:var(--blocked)}
+.pill-narrowed{background:var(--narrow-soft);color:var(--narrow)}
+.pill-passable{background:var(--pass-soft);color:var(--pass)}
+.pill-hold{background:var(--hold-soft);color:var(--hold)}
+.krds-badge.pill-none{background:transparent;color:var(--faint);box-shadow:inset 0 0 0 1px var(--line)}
+/* KRDS 위험 배지(판단 유보 개수·연결 실패)도 같은 로즈 */
+.krds-badge.bg-danger{background:#E25563;border-color:#E25563}
 .small{font-size:var(--fs-s);color:var(--faint)}
 .mono{font-size:var(--fs-s);color:var(--faint);letter-spacing:.2px}
 
@@ -151,7 +161,7 @@ svg.map .mk .num{font-size:10px;font-weight:700;fill:#fff;font-family:var(--f-bo
 h4.sec{font-size:var(--fs-m);margin:4px 0 0}
 
 /* ===== 목록 ===== */
-.page{padding:20px max(16px,env(safe-area-inset-right,0px)) 48px max(16px,env(safe-area-inset-left,0px));max-width:1440px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.page{padding:16px max(16px,env(safe-area-inset-right,0px)) 48px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:16px}
 .page h1{font-size:var(--fs-xl);margin:0}
 .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--surface);border:0;box-shadow:var(--shadow);border-radius:var(--r-l);padding:10px 12px}
 .toolbar .grow{flex:1}
@@ -328,10 +338,9 @@ svg.map .svg-pin:focus-visible path{stroke:var(--accent)}
 .hold-judge{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border:1px solid var(--krds-color-light-primary-20);border-radius:var(--r-m);background:var(--accent-soft)}
 .hold-judge .sec{margin:0}
 /* 관측 목록: 화면 폭을 넓게 써서 표가 좌우로 잘리지 않게 */
-#v-list.page{max-width:none;padding-left:24px;padding-right:24px}
 #v-list .list-table table{min-width:0;width:100%;table-layout:auto}
 /* 묶음·행정구역 막대 말풍선: 마우스 올림과 키보드 선택 모두 */
-.pc-tip,.ab-tip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);white-space:nowrap;background:var(--krds-color-light-gray-90,#1e2124);color:#fff;font:600 var(--fs-s)/1.4 var(--f-body);padding:4px 8px;border-radius:var(--r-s);opacity:0;pointer-events:none;transition:opacity .1s;z-index:5}
+.pc-tip,.ab-tip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);white-space:nowrap;background:#25263A;color:#fff;font:600 var(--fs-s)/1.4 var(--f-body);padding:4px 8px;border-radius:var(--r-s);opacity:0;pointer-events:none;transition:opacity .1s;z-index:5}
 .pin-cluster:hover .pc-tip,.pin-cluster:focus-visible .pc-tip,.area-bars button:hover .ab-tip,.area-bars button:focus-visible .ab-tip{opacity:1}
 .area-bars button{position:relative}
 .row-open{border:0;background:none;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
@@ -341,10 +350,10 @@ main h1:focus{outline:none;box-shadow:none}
 .vworld-map .leaflet-control-attribution{max-width:calc(100vw - 24px);white-space:normal}
 .svg-attr{position:absolute;z-index:1000;right:0;bottom:0;background:rgba(255,255,255,.8);padding:0 5px;font-size:var(--fs-xs);color:var(--muted)}
 /* 핀 말풍선 (마우스 올림·키보드 선택·목록에서 가리킬 때) */
-.leaflet-tooltip.pin-tip{background:var(--krds-color-light-gray-90,#1e2124);color:#fff;border:0;border-radius:var(--r-m);padding:6px 10px;box-shadow:0 2px 8px rgba(0,0,0,.25);font-family:var(--f-body);display:flex;flex-direction:column;gap:1px;white-space:nowrap}
+.leaflet-tooltip.pin-tip{background:#25263A;color:#fff;border:0;border-radius:var(--r-m);padding:6px 10px;box-shadow:0 2px 8px rgba(0,0,0,.25);font-family:var(--f-body);display:flex;flex-direction:column;gap:1px;white-space:nowrap}
 .leaflet-tooltip.pin-tip b{font-size:var(--fs-m);font-weight:700}
 .leaflet-tooltip.pin-tip span{font-size:var(--fs-s);opacity:.88}
-.leaflet-tooltip-top.pin-tip::before{border-top-color:var(--krds-color-light-gray-90,#1e2124)}
+.leaflet-tooltip-top.pin-tip::before{border-top-color:#25263A}
 /* 목록에서 가리킨 핀·묶음 강조 */
 .pin.hl svg{transform:scale(1.25)}
 .pin.hl .pin-body{stroke:var(--accent);stroke-width:3}
@@ -352,9 +361,9 @@ main h1:focus{outline:none;box-shadow:none}
 /* 교통 CCTV (UTIC): 어두운 네모 카메라, 판정 핀과 구분 */
 .cctv-mk{cursor:pointer}
 .cctv-mk svg{display:block;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.35));transition:transform .12s}
-.cctv-mk svg rect{fill:var(--krds-color-light-gray-80,#33363d);stroke:#fff;stroke-width:1.5}
+.cctv-mk svg rect{fill:#3A3C55;stroke:#fff;stroke-width:1.5}
 .cctv-mk:hover svg,.cctv-mk:focus-visible svg{transform:scale(1.15)}
-.fdot.cam{border-radius:3px;background:var(--krds-color-light-gray-80,#33363d)}
+.fdot.cam{border-radius:3px;background:#3A3C55}
 .modal-box.modal-md{width:min(560px,100%)}
 .cctv-view{display:flex;flex-direction:column;gap:12px}
 .cctv-view .dh{padding-right:72px}
@@ -373,23 +382,19 @@ main h1:focus{outline:none;box-shadow:none}
 .route-box .sec{margin:0}
 .route-box .rowx{display:flex;align-items:center;justify-content:flex-start;gap:6px;flex-wrap:wrap}
 .route-actions,.fp-reasons{display:flex;gap:6px;flex-wrap:wrap}
-.route-box .hint{color:var(--krds-color-light-gray-60,#6D7882)}
+.route-box .hint{color:var(--muted)}
 .route-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .route-list li{display:flex;flex-direction:column;gap:4px}
 .route-list li+li{border-top:1px solid var(--line-soft);padding-top:8px}
 .route-list p{margin:0}
 .route-list select{width:auto;min-width:9em}
-.krds-badge.route{white-space:nowrap;font-weight:700;border:1px solid currentColor;background:transparent}
-.route-A{color:var(--krds-color-light-information-60,#0B78CB)}
-.route-B{color:var(--krds-color-light-warning-60,#8A5C00)}
-.route-C{color:var(--krds-color-light-danger-60,#BD2C0F)}
-.route-D{color:#7A4B00}
-.route-E{color:var(--krds-color-light-success-60,#267337)}
-.route-F{color:var(--krds-color-light-gray-70,#464C53)}
-.krds-badge.persist{white-space:nowrap;background:var(--krds-color-light-gray-10,#E6E8EA);color:var(--krds-color-light-gray-80,#33363D)}
-.krds-badge.persist-상습{background:var(--krds-color-light-danger-5,#FDEFEC);color:var(--krds-color-light-danger-60,#BD2C0F);font-weight:700}
-.krds-badge.persist-지속{background:var(--krds-color-light-warning-5,#FFF3DB);color:var(--krds-color-light-warning-70,#614100)}
+/* 처리 유형은 분류 태그라 판정 색과 겹치지 않게 한 가지 톤 (글자 A~F로 구분) */
+.krds-badge.route{white-space:nowrap;font-weight:600;border:0;background:var(--accent-soft);color:var(--accent-text)}
+/* 지속성·현장 확인: 판정 색 한 벌을 그대로 쓴다 */
+.krds-badge.persist{white-space:nowrap;border:0;background:var(--hold-soft);color:var(--hold)}
+.krds-badge.persist-상습{background:var(--blocked-soft);color:var(--blocked);font-weight:700}
+.krds-badge.persist-지속{background:var(--narrow-soft);color:var(--narrow)}
 .krds-badge.site{white-space:nowrap;border:1px solid currentColor;background:transparent;font-weight:700}
-.site-done{color:var(--krds-color-light-success-60,#1F6B2E)}
-.site-again{color:var(--krds-color-light-danger-60,#BD2C0F)}
-.site-wait{color:var(--krds-color-light-gray-60,#6D7882)}
+.site-done{color:var(--pass)}
+.site-again{color:var(--blocked)}
+.site-wait{color:var(--hold)}

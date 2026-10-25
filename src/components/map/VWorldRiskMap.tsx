@@ -13,7 +13,7 @@ import { midOf, segById } from '../../lib/segments';
 import type { Pass, Segment } from '../../types';
 import type { Pin, RiskMapProps } from './types';
 
-const SELECT = '#256EF4';
+const SELECT = '#5B5ECF';
 const RISK_ORDER: Record<Pass, number> = { passable: 0, hold: 1, narrowed: 2, blocked: 3 };
 const PASS_ORDER: Pass[] = ['blocked', 'narrowed', 'hold', 'passable'];
 /** 줌 16 기준 도로 폭(px). 약도(SvgRiskMap)의 등급별 폭과 같은 비율 */
