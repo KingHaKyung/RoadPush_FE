@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ACCENT, ACTIONS, DEPTS, OPEN_ACTIONS, CL_KIND, CL_PAVE, PASS, PASS_KEYS, PIN_COLOR, RANK, SORT_LABEL, SRC_LABEL } from '../lib/constants';
+import { ACTIONS, DEPTS, OPEN_ACTIONS, CL_KIND, CL_PAVE, PASS, PASS_KEYS, PIN_COLOR, RANK, SORT_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
-import { dayDelta, kpiPred, siteCounts, spanLabel, trend as trendOf, type KpiKey } from '../lib/stats';
+import { siteCounts, type KpiKey } from '../lib/stats';
 import { compareObs, effPass, inPeriod, nodeName, pinKey, pinsOf, segById } from '../lib/segments';
 import type { Action, Filters, Observation, ObservationPatch, Pass, Pin, SortKey, Source } from '../types';
-import { AreaBars, KpiCard, SectionTitle } from './Dashboard';
+import { AreaBars, SectionTitle, Stat } from './Dashboard';
 import { RiskMap } from './map/RiskMap';
 import { Modal } from './Modal';
 import { CCTV_ROADS, loadCctvs, type Cctv, type CctvRoad } from '../lib/cctv';
@@ -27,6 +27,9 @@ interface Props {
 
 const RANK_ORDER: Record<Pass, number> = { passable: 0, narrowed: 1, blocked: 2, hold: -1 };
 const byTimeDesc = (a: Observation, b: Observation) => b.t.localeCompare(a.t);
+const KPIS: [KpiKey, string, 'danger' | 'warning' | undefined][] = [['blocked', '단절', 'danger'], ['narrowed', '좁아짐', 'warning'], ['open', '미처리 위험', 'danger'], ['hold', '판단 유보', undefined]];
+const FILTER_KEY = 'roadpush.filters';
+const readFilterOpen = () => { try { return localStorage.getItem(FILTER_KEY) !== 'off'; } catch { return true; } };
 
 export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey, selectSeg, setSelObs, onUpdate }: Props) {
   /** 우선 점검 지점 정렬 (관측 목록과 따로, 기본은 위험도순) */
@@ -39,12 +42,16 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
   const [cctvList, setCctvList] = useState<Cctv[]>([]);
   useEffect(() => { loadCctvs().then(setCctvList); }, []);
   const closeCctv = useCallback(() => setCctv(null), []);
+  const [filterOpen, setFilterOpen] = useState(readFilterOpen);
+  const showFilters = (on: boolean) => {
+    setFilterOpen(on);
+    try { localStorage.setItem(FILTER_KEY, on ? 'on' : 'off'); } catch { /* 저장 못 해도 화면은 그대로 */ }
+  };
 
   // 지점 = 같은 좌표의 관측 묶음. sites는 판정·처리 필터와 상관없이 (개수 표시용), pins는 지도에 찍을 것
   const sites = useMemo(() => pinsOf(obs, { ...f, pass: new Set(PASS_KEYS), act: new Set(ACTIONS) }), [obs, f]);
   const pins = useMemo(() => pinsOf(obs, f), [obs, f]);
   const cnt = (p: Pass) => sites.filter((s) => s.pass === p).length;
-  const KPIS: [KpiKey, string, string][] = [['blocked', '단절 지점', ACCENT.danger], ['narrowed', '좁아짐 지점', ACCENT.warning], ['open', '미전달 위험', ACCENT.danger], ['hold', '판단 유보', ACCENT.gray]];
 
   const toggle = <K extends 'pass' | 'act' | 'src'>(key: K, v: string, on: boolean) => {
     const s = new Set(f[key] as Set<string>);
@@ -55,7 +62,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
     // KRDS 체크박스: input + label 형제 구조
     <div className="krds-form-check fcheck" key={v}>
       <input type="checkbox" id={`f-${key}-${v}`} checked={(f[key] as Set<string>).has(v)} onChange={(e) => toggle(key, v, e.target.checked)} />
-      <label htmlFor={`f-${key}-${v}`}>{dot && <i className="fdot" style={{ background: dot }} aria-hidden="true" />}{label}<span className="cnt">{n}</span></label>
+      <label htmlFor={`f-${key}-${v}`} className={n ? undefined : 'zero'}>{dot && <i className="fdot" style={{ background: dot }} aria-hidden="true" />}{label}<span className="cnt">{n}</span></label>
     </div>
   );
 
@@ -93,24 +100,27 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
   );
 
   return (
-    <section id="v-map" aria-label="위험 지도">
+    <section id="v-map" className={filterOpen ? undefined : 'nofilter'} aria-label="위험 지도">
       {/* 화면 제목 (보이지 않게, 화면 전환 시 포커스가 여기로) */}
       <h1 className="vh" tabIndex={-1}>위험 지도</h1>
-      {/* 지표 카드: 큰 숫자(지점) · 어제 대비 증감 · 추세(관측 수) */}
-      <div className="kpis" aria-label="지점 현황">
-        {KPIS.map(([k, label, accent]) => (
-          <KpiCard key={k} label={label} unit="곳" accent={accent} value={sites.filter((x) => siteCounts(k, x)).length}
-            delta={dayDelta(obs, f, kpiPred(k))} values={trendOf(obs, f, kpiPred(k))} spanLabel={spanLabel(f)} />
-        ))}
-      </div>
+      {sites.length ? (
+        <div className="stats" aria-label="지점 현황">
+          {KPIS.map(([k, label, tone]) => <Stat key={k} label={label} unit="곳" tone={tone} value={sites.filter((x) => siteCounts(k, x)).length} />)}
+        </div>
+      ) : (
+        <p className="stats empty">이 기간에 수집된 관측이 없습니다</p>
+      )}
 
-      <div className="filters">
-        <div className="fgroup"><SectionTitle title="필터" sub={`관측 지점 ${sites.length}곳`} /></div>
+      {filterOpen && <div className="filters">
+        <div className="rowx">
+          <SectionTitle title="필터" sub={`${sites.length}곳`} />
+          <button type="button" className="krds-btn xsmall text" onClick={() => showFilters(false)}>접기</button>
+        </div>
         <div className="fgroup"><h2>기간</h2><PeriodToggle value={f.period} onChange={(period) => setFilters({ ...f, period })} /></div>
-        <div className="fgroup"><h2>지점 판정 <span className="small">최신 관측 기준</span></h2>{PASS_KEYS.map((p) => chk('pass', p, PASS[p].label, cnt(p), PIN_COLOR[p].fill))}</div>
+        <div className="fgroup"><h2>판정</h2>{PASS_KEYS.map((p) => chk('pass', p, PASS[p].label, cnt(p), PIN_COLOR[p].fill))}</div>
         <div className="fgroup"><h2>처리 상태</h2>{ACTIONS.map((a: Action) => chk('act', a, a, sites.filter((s) => s.obs.action === a).length))}</div>
         <div className="fgroup">
-          <h2><label htmlFor="f-dept">담당 부서</label> <span className="small">우리 부서 건만 보기</span></h2>
+          <h2><label htmlFor="f-dept">담당 부서</label></h2>
           <select className="krds-form-select small" id="f-dept" value={f.dept} onChange={(e) => setFilters({ ...f, dept: e.target.value })}>
             <option value="">전체 부서</option>{DEPTS.filter((d) => d !== '미배정').map((d) => <option key={d}>{d}</option>)}
           </select>
@@ -118,7 +128,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
         <div className="fgroup"><h2>수집 경로</h2>{(['cctv', 'car', 'upload'] as Source[]).map((s) => chk('src', s, s === 'car' ? '불법주정차 단속차량' : SRC_LABEL[s], obs.filter((o) => o.src === s && inPeriod(o, f.period)).length))}</div>
         {cctvList.length > 0 && (
           <div className="fgroup">
-            <h2>교통 CCTV <span className="small">ITS · UTIC</span></h2>
+            <h2>교통 CCTV</h2>
             {CCTV_ROADS.map((r) => {
               const n = cctvList.filter((c) => c.road === r).length;
               if (!n) return null;
@@ -130,21 +140,24 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
                 </div>
               );
             })}
-            <p className="small">전국 카메라 중 지금 화면 안의 것만 보입니다. 누르면 실시간 영상</p>
           </div>
         )}
-        <div className="fgroup">
-          <h2>행정구역별 지점 <span className="small">누르면 검색</span></h2>
-          <AreaBars sites={sites} active={f.q.trim()} onPick={(a) => setFilters({ ...f, q: a })} />
-        </div>
-      </div>
+        {sites.length > 0 && (
+          <div className="fgroup">
+            <h2>행정구역</h2>
+            <AreaBars sites={sites} active={f.q.trim()} onPick={(a) => setFilters({ ...f, q: a })} />
+          </div>
+        )}
+      </div>}
 
       <div className="mapwrap">
         <RiskMap pins={pins} selectedPin={site} hoverPin={hoverPin} cctvRoads={cctvRoads} onPickCctv={setCctv} onPickPin={(p) => { setHoverPin(null); pickPin(p); }} selected={selSeg} onSelect={(id) => selectSeg(id)} focusKey={focusKey} />
-        <div className="maptools"><div className="box map-legend">
-          {PASS_KEYS.map((p) => <span key={p}><i style={{ ['--c' as string]: PIN_COLOR[p].fill }} />{PASS[p].label}</span>)}
-          <span className="small">숫자: 모인 지점 수</span>
-        </div></div>
+        <div className="maptools">
+          {!filterOpen && <button type="button" className="krds-btn xsmall secondary" onClick={() => showFilters(true)}>필터</button>}
+          <div className="box map-legend">
+            {PASS_KEYS.map((p) => <span key={p}><i style={{ ['--c' as string]: PIN_COLOR[p].fill }} />{PASS[p].label}</span>)}
+          </div>
+        </div>
       </div>
 
       <div className="side">
@@ -162,10 +175,17 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
             {queue.length ? queue.map((p, i) => (
               <button key={p.key} type="button" className="qitem" style={{ ['--c' as string]: PIN_COLOR[p.pass].fill }} onClick={() => { setHoverPin(null); pickPin(p, true); }}
                 onMouseEnter={() => setHoverPin(p.key)} onMouseLeave={() => setHoverPin(null)} onFocus={() => setHoverPin(p.key)} onBlur={() => setHoverPin(null)}>
-                <span className="rk">{i + 1}</span><span className="pl">{p.obs.place}</span><Pill pass={p.pass} />
-                <span className="sub">{p.obs.area && <>{p.obs.area} · </>}{SRC_LABEL[p.obs.src]} {p.obs.dev} · {fmtTime(p.obs.t)} · {p.obs.risk == null ? '점수 없음' : <b className={`qrisk${p.obs.risk >= 80 ? ' hi' : ''}`}>{p.obs.risk}점</b>} · {p.obs.action}{p.obs.dept !== '미배정' ? ` · ${p.obs.dept}` : ''}{p.obs.persist && p.obs.persist.kind !== '일시' ? ` · ${p.obs.persist.kind} ${p.obs.persist.n}회` : ''}{p.obs.site ? ` · ${p.obs.site}` : ''}</span>
+                <span className="rk">{i + 1}</span>
+                <span className="pl">{p.obs.place}</span>
+                <span className={`qscore${(p.obs.risk ?? 0) >= 80 ? ' hi' : ''}`}><span className="vh">위험도 </span>{p.obs.risk ?? '–'}</span>
+                <span className="sub">
+                  <b className={`t-${p.pass}`}>{PASS[p.pass].label}</b>
+                  {p.obs.area && ` · ${p.obs.area.split(' ').pop()}`} · {fmtTime(p.obs.t)}
+                  {p.obs.action !== '미처리' && ` · ${p.obs.action}`}
+                  {p.obs.persist?.kind === '상습' && ` · 상습 ${p.obs.persist.n}회`}
+                </span>
               </button>
-            )) : <p className="small">{f.q.trim() ? `'${f.q.trim()}'에 맞는 지점이 없습니다.` : '조건에 맞는 지점이 없습니다.'}</p>}
+            )) : <p className="small">{f.q.trim() ? `'${f.q.trim()}'에 맞는 지점 없음` : '점검할 지점 없음'}</p>}
           </div>
         ) : site && cur ? (
           <>
@@ -190,18 +210,17 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
                   <dt>길이</dt><dd>{sg.len}m</dd>
                   <dt>UFID</dt><dd className="small">{sg.cl.ufid}</dd>
                 </dl>
-                <p className="small">표준노드링크에 없는 길이라 연속수치지형도(국토지리정보원) 도로중심선 정보를 보여 줍니다.</p>
               </>
             ) : (
               <dl className="facts">
                 <dt>링크 ID</dt><dd>{sg.id}</dd><dt>길이</dt><dd>{sg.len}m</dd>
                 {sg.lanes ? <><dt>차로 · 제한속도</dt><dd>{sg.lanes}차로 · {sg.spd}km/h</dd></> : <><dt>제한속도</dt><dd>{sg.spd}km/h</dd></>}
-                {sg.width && <><dt>도로폭</dt><dd>{sg.width}m <span className="small">(연속수치지형도)</span></dd></>}
+                {sg.width && <><dt>도로폭</dt><dd>{sg.width}m</dd></>}
                 <dt>도로 등급</dt><dd>{RANK[sg.rank] ?? sg.rank}</dd>
                 {sg.a && <><dt>노드</dt><dd className="small">{sg.a} → {sg.b}</dd></>}
               </dl>
             )}
-            {cur ? obsList : !sg.cl && <p className="small">이 도로 근처에는 아직 수집된 관측이 없습니다.</p>}
+            {cur ? obsList : !sg.cl && <p className="small">수집된 관측 없음</p>}
           </>
         ) : null}
       </div>
@@ -211,12 +230,10 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
           <div className="cctv-view">
             <div className="dh">
               <h3>{cctv.name}</h3>
-              <div className="meta">{cctv.center && <span>{cctv.center}</span>}<span>{cctv.road} CCTV · 실시간</span></div>
+              <div className="meta">{cctv.center && <span>{cctv.center}</span>}<span>{cctv.road}</span></div>
             </div>
             <CctvPlayer cctv={cctv} />
-            <p className="small">{cctv.src === 'its'
-              ? 'ITS 국가교통정보센터 제공. 카메라 점검이나 통신 사정으로 영상이 나오지 않을 수 있습니다.'
-              : '도시교통정보센터(UTIC) 개방데이터. 등록된 IP 대역에서만 재생되고 한 번에 60초까지 나옵니다.'}</p>
+            <p className="small">{cctv.src === 'its' ? '출처: 국가교통정보센터(ITS)' : '출처: 도시교통정보센터(UTIC) · 등록 IP에서만 재생, 최대 60초'}</p>
           </div>
         )}
       </Modal>

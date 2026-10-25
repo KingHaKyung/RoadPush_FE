@@ -1,10 +1,9 @@
 import { useCallback, useState } from 'react';
-import { ACCENT, COND_LABEL, DEMO_NOW, PASS, SORT_LABEL, SRC_LABEL } from '../lib/constants';
+import { COND_LABEL, DEMO_NOW, PASS, SORT_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
 import { compareObs, matchesQuery } from '../lib/segments';
-import { dayDelta, spanLabel, trend } from '../lib/stats';
 import type { Condition, Filters, Observation, ObservationPatch, Pass, SortKey } from '../types';
-import { CountBars, KpiCard, SectionTitle } from './Dashboard';
+import { CountBars, SectionTitle, Stat } from './Dashboard';
 import { FrameView } from './FrameView';
 import { Modal } from './Modal';
 import { ObservationDetail } from './ObservationDetail';
@@ -33,8 +32,7 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
   const open = hold.filter((o) => !o.human);
   const done = hold.filter((o) => o.human);
 
-  // 지표 카드 (검색어까지만 반영, 사유 선택과는 무관)
-  const waitPred = (o: Observation) => o.pass === 'hold' && !o.human && matchesQuery(o, f.q);
+  // 현황 줄 (검색어까지만 반영, 사유 선택과는 무관)
   const oldest = allOpen.reduce<Observation | null>((a, o) => (!a || o.t < a.t ? o : a), null);
   const waitH = oldest ? Math.floor((DEMO_NOW.getTime() - new Date(oldest.t).getTime()) / 36e5) : 0;
   const reasons = (Object.keys(COND_LABEL) as Condition[]).map((k) => ({ key: k, label: COND_LABEL[k], n: allOpen.filter((o) => o.cond === k).length }))
@@ -43,7 +41,7 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
   /** 사람 판정 버튼 (카드와 큰 창에서 같이 쓴다) */
   const actions = (o: Observation) => o.human ? (
     <div className="rowx">
-      <span className="small">사람 판정으로 기록했습니다</span>
+      <span className="small">사람 판정 완료</span>
       <button type="button" className="krds-btn small tertiary" onClick={() => { onUpdate(o.id, { human: null, review: '미검수' }, '사람 판정 취소'); toast('판정을 취소했습니다'); }}>판정 취소</button>
     </div>
   ) : (
@@ -79,15 +77,14 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
   return (
     <section id="v-hold" className="page">
       <SectionTitle as="h1" size="page" title="판단 유보 검수" sub={`검수 대기 ${open.length}건`} />
-      <p className="small lead">AI가 확정하지 못한 관측입니다. 사진을 보고 판정하면 사람 판정으로 따로 기록됩니다.</p>
-      <div className="kpis">
-        <KpiCard label="검수 대기" unit="건" accent={ACCENT.primary} value={allOpen.length} delta={dayDelta(obs, f, waitPred)} values={trend(obs, f, waitPred)} spanLabel={spanLabel(f)} />
-        <KpiCard label="검수 완료" unit="건" accent={ACCENT.success} value={all.length - allOpen.length} note="사람 판정으로 기록" />
-        <KpiCard label="재분석 요청" unit="건" accent={ACCENT.info} value={allOpen.filter((o) => o.reanalyze).length} note="AI 재분석 대기 중" />
-        <KpiCard label="가장 오래 기다린 건" accent={ACCENT.warning} unit={oldest ? '시간' : undefined} value={oldest ? waitH : '—'} note={oldest?.place ?? '대기 중인 건 없음'} />
+      <div className="stats">
+        <Stat label="검수 대기" unit="건" tone="warning" value={allOpen.length} />
+        <Stat label="검수 완료" unit="건" value={all.length - allOpen.length} />
+        <Stat label="재분석 요청" unit="건" value={allOpen.filter((o) => o.reanalyze).length} />
+        <Stat label="가장 오래 기다린 건" unit={oldest ? '시간' : undefined} value={oldest ? waitH : '—'} note={oldest?.place} />
       </div>
       <div className="card hold-reasons">
-        <SectionTitle as="h2" title="유보 사유" sub={cond ? `${COND_LABEL[cond]}만 보는 중 · 다시 누르면 해제` : '검수 대기 기준 · 누르면 거르기'} />
+        <SectionTitle as="h2" title="유보 사유" sub={cond ? COND_LABEL[cond] : undefined} />
         {reasons.length ? <CountBars rows={reasons} active={cond} onPick={setCond} /> : <p className="small">검수 대기 중인 건이 없습니다.</p>}
       </div>
       <div className="toolbar">

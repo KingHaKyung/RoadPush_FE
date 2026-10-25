@@ -1,5 +1,5 @@
 import { useId, useState, type ReactNode } from 'react';
-import { ACTIONS, DEPTS, PASS, RANK, ROUTE_LABEL, SRC_LABEL } from '../lib/constants';
+import { ACTIONS, DEPTS, PASS, RANK, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
 import { effPass, segById } from '../lib/segments';
 import { requestText } from '../lib/request';
@@ -74,27 +74,26 @@ export function ObservationDetail({ o, onUpdate, layout = 'panel', extra }: Prop
           <dt>AI 판정</dt><dd><Pill pass={o.pass} />{o.human && <> → 사람 판정 <Pill pass={o.human} /></>}</dd>
           <dt>상대 위험도</dt>
           <dd>{o.risk == null ? '산출 불가' : <><b>{o.risk}</b> / 100<div className="meter"><i style={{ width: `${o.risk}%`, background: PASS[o.pass].color }} /></div></>}</dd>
-          <dt>보도 점유</dt><dd>{o.occ == null ? '측정 불가' : <>{o.occ}% <span className="small">(사진 면적 기준 근사)</span></>}</dd>
+          <dt>보도 점유</dt><dd>{o.occ == null ? '측정 불가' : `${o.occ}%`}</dd>
           <dt>원인</dt><dd>{o.causes.length ? <span className="krds-badge-wrap">{o.causes.map((c) => <span key={c} className="krds-badge small outline-gray">{c}</span>)}</span> : '없음'}</dd>
-          {o.routes.length > 0 && <><dt>처리 유형</dt><dd>{o.routes.map((r) => <div key={r.cause}>{r.type}. {ROUTE_LABEL[r.type]} · {r.dept}</div>)}</dd></>}
         </dl>
         {o.reason && <div className="reason">{o.reason}</div>}
         {o.routes.length > 0 && (
           <section className="route-box" aria-label="처리 경로">
             <div className="rowx"><h4 className="sec">처리 경로</h4>{o.persist && <PersistBadge p={o.persist} />}{o.site && <SiteBadge s={o.site} />}</div>
-            {routeDepts.length > 1 && <p className="small">담당이 다른 원인이 함께 감지됐습니다. 같은 요청서를 {routeDepts.join(', ')} 모두에 보내세요.</p>}
+            {routeDepts.length > 1 && <p className="small">{routeDepts.join(' · ')} 모두에 전달</p>}
             <ul className="route-list">
               {o.routes.map((r) => (
                 <li key={r.cause}>
                   <div className="rowx">
-                    <RouteBadge route={r} /><b>{r.cause}</b><span className="small">기본 부서 {r.dept}</span>
+                    <RouteBadge route={r} /><b>{r.cause}</b><span className="small">{r.dept}</span>
                   </div>
                   <p className="small">{r.guide}</p>
                 </li>
               ))}
             </ul>
             {o.persist && o.persist.kind !== '일시' && (
-              <p className="small">감지 근거: 최근 7일 같은 원인 <b>{o.persist.n}회</b> · {o.persist.days}일째{o.persist.kind === '상습' ? ' · 사라졌다가 다시 나타남' : ''}</p>
+              <p className="small">최근 7일 {o.persist.n}회 · {o.persist.days}일째</p>
             )}
             <div className="route-actions">
               <button type="button" className="krds-btn small primary" onClick={deliver}>
@@ -110,7 +109,6 @@ export function ObservationDetail({ o, onUpdate, layout = 'panel', extra }: Prop
                 ))}
               </div>
             )}
-            <p className="small hint">요청서를 기존 업무 시스템에 붙여 넣으세요. 처리 결과는 다음 관측에서 자동으로 확인합니다.</p>
           </section>
         )}
         <div className="form">
