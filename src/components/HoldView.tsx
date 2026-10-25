@@ -2,8 +2,9 @@ import { useCallback, useState } from 'react';
 import { COND_LABEL, DEMO_NOW, PASS, SORT_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
 import { compareObs, matchesQuery } from '../lib/segments';
+import { dayDelta, trend } from '../lib/stats';
 import type { Condition, Filters, Observation, ObservationPatch, Pass, SortKey } from '../types';
-import { CountBars, SectionTitle, Stat } from './Dashboard';
+import { CountBars, KpiCard, SectionTitle } from './Dashboard';
 import { FrameView } from './FrameView';
 import { Modal } from './Modal';
 import { ObservationDetail } from './ObservationDetail';
@@ -32,7 +33,8 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
   const open = hold.filter((o) => !o.human);
   const done = hold.filter((o) => o.human);
 
-  // 현황 줄 (검색어까지만 반영, 사유 선택과는 무관)
+  // 지표 카드 (검색어까지만 반영, 사유 선택과는 무관)
+  const waitPred = (o: Observation) => o.pass === 'hold' && !o.human && matchesQuery(o, f.q);
   const oldest = allOpen.reduce<Observation | null>((a, o) => (!a || o.t < a.t ? o : a), null);
   const waitH = oldest ? Math.floor((DEMO_NOW.getTime() - new Date(oldest.t).getTime()) / 36e5) : 0;
   const reasons = (Object.keys(COND_LABEL) as Condition[]).map((k) => ({ key: k, label: COND_LABEL[k], n: allOpen.filter((o) => o.cond === k).length }))
@@ -77,11 +79,11 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
   return (
     <section id="v-hold" className="page">
       <SectionTitle as="h1" size="page" title="판단 유보 검수" sub={`검수 대기 ${open.length}건`} />
-      <div className="stats">
-        <Stat label="검수 대기" unit="건" tone="warning" value={allOpen.length} />
-        <Stat label="검수 완료" unit="건" value={all.length - allOpen.length} />
-        <Stat label="재분석 요청" unit="건" value={allOpen.filter((o) => o.reanalyze).length} />
-        <Stat label="가장 오래 기다린 건" unit={oldest ? '시간' : undefined} value={oldest ? waitH : '—'} note={oldest?.place} />
+      <div className="kpis">
+        <KpiCard hero label="검수 대기" unit="건" value={allOpen.length} delta={dayDelta(obs, f, waitPred)} values={trend(obs, f, waitPred)} />
+        <KpiCard label="검수 완료" unit="건" value={all.length - allOpen.length} />
+        <KpiCard label="재분석 요청" unit="건" value={allOpen.filter((o) => o.reanalyze).length} />
+        <KpiCard label="가장 오래 기다린 건" unit={oldest ? '시간' : undefined} value={oldest ? waitH : '—'} note={oldest?.place} />
       </div>
       <div className="card hold-reasons">
         <SectionTitle as="h2" title="유보 사유" sub={cond ? COND_LABEL[cond] : undefined} />

@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { ACTIONS, DEPTS, PASS, PASS_KEYS, PERIOD_LABEL, ROUTE_LABEL, SORT_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
 import { compareObs, effPass, inPeriod, matchesFilters, matchesQuery } from '../lib/segments';
+import { dayDelta, trend } from '../lib/stats';
 import type { Action, Filters, Observation, ObservationPatch, Pass, SortKey } from '../types';
-import { SectionTitle, Stat } from './Dashboard';
+import { KpiCard, SectionTitle } from './Dashboard';
 import { PeriodToggle } from './PeriodToggle';
 import { Pill } from './Pill';
 import { PersistBadge, RouteBadge, SiteBadge } from './RouteBadge';
@@ -30,11 +31,11 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
   const base = obs.filter((o) => inPeriod(o, f.period) && f.src.has(o.src) && matchesQuery(o, f.q));
   const allPass = f.pass.size === PASS_KEYS.length, allAct = f.act.size === ACTIONS.length;
   const only = <T,>(set: Set<T>, v: T) => set.size === 1 && set.has(v);
-  const KPIS: { label: string; pred: (o: Observation) => boolean; tone?: 'danger' | 'warning'; active: boolean; apply: Partial<Filters> }[] = [
-    { label: '전체 관측', pred: () => true, active: allPass && allAct, apply: { pass: new Set(PASS_KEYS), act: new Set(ACTIONS) } },
-    { label: '단절', pred: (o) => effPass(o) === 'blocked', tone: 'danger', active: only(f.pass, 'blocked') && allAct, apply: { pass: new Set<Pass>(['blocked']), act: new Set(ACTIONS) } },
-    { label: '미처리', pred: (o) => o.routes.length > 0 && o.action === '미처리', tone: 'warning', active: allPass && only(f.act, '미처리'), apply: { pass: new Set(PASS_KEYS), act: new Set<Action>(['미처리']) } },
-    { label: '조치 완료', pred: (o) => o.action === '조치 완료', active: allPass && only(f.act, '조치 완료'), apply: { pass: new Set(PASS_KEYS), act: new Set<Action>(['조치 완료']) } },
+  const KPIS: { label: string; pred: (o: Observation) => boolean; tone: 'risk' | 'good' | 'neutral'; active: boolean; apply: Partial<Filters> }[] = [
+    { label: '전체 관측', pred: () => true, tone: 'neutral', active: allPass && allAct, apply: { pass: new Set(PASS_KEYS), act: new Set(ACTIONS) } },
+    { label: '단절', pred: (o) => effPass(o) === 'blocked', tone: 'risk', active: only(f.pass, 'blocked') && allAct, apply: { pass: new Set<Pass>(['blocked']), act: new Set(ACTIONS) } },
+    { label: '미처리', pred: (o) => o.routes.length > 0 && o.action === '미처리', tone: 'risk', active: allPass && only(f.act, '미처리'), apply: { pass: new Set(PASS_KEYS), act: new Set<Action>(['미처리']) } },
+    { label: '조치 완료', pred: (o) => o.action === '조치 완료', tone: 'good', active: allPass && only(f.act, '조치 완료'), apply: { pass: new Set(PASS_KEYS), act: new Set<Action>(['조치 완료']) } },
   ];
   const sortBtn = (k: SortKey, label: string) => (
     <button type="button" aria-pressed={f.sort === k} onClick={() => setFilters({ ...f, sort: k })}>{label}{f.sort === k ? ' ▾' : ''}</button>
@@ -61,11 +62,12 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
   return (
     <section id="v-list" className="page">
       <SectionTitle as="h1" size="page" title="관측 목록" sub={`${PERIOD_LABEL[f.period]} · ${rows.length}건`} />
-      <div className="stats" aria-label="관측 현황 (누르면 표를 거릅니다)">
-        {KPIS.map((k) => (
-          <Stat key={k.label} label={k.label} unit="건" value={base.filter(k.pred).length} tone={k.tone}
-            active={k.active} onClick={() => setFilters({ ...f, ...k.apply })} />
-        ))}
+      <div className="kpis" aria-label="관측 현황 (누르면 표를 거릅니다)">
+        {KPIS.map((k, i) => {
+          const pred = (o: Observation) => matchesQuery(o, f.q) && k.pred(o);
+          return <KpiCard key={k.label} hero={i === 0} label={k.label} unit="건" value={base.filter(k.pred).length} tone={k.tone}
+            delta={dayDelta(obs, f, pred)} values={trend(obs, f, pred)} active={k.active} onClick={() => setFilters({ ...f, ...k.apply })} />;
+        })}
       </div>
       <div className="toolbar">
         <label className="vh" htmlFor="q">검색</label>

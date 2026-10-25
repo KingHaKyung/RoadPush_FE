@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ACTIONS, DEPTS, OPEN_ACTIONS, CL_KIND, CL_PAVE, PASS, PASS_KEYS, PIN_COLOR, RANK, SORT_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
-import { siteCounts, type KpiKey } from '../lib/stats';
+import { dayDelta, kpiPred, siteCounts, trend as trendOf, type KpiKey } from '../lib/stats';
 import { compareObs, effPass, inPeriod, nodeName, pinKey, pinsOf, segById } from '../lib/segments';
 import type { Action, Filters, Observation, ObservationPatch, Pass, Pin, SortKey, Source } from '../types';
-import { AreaBars, SectionTitle, Stat } from './Dashboard';
+import { AreaBars, KpiCard, SectionTitle } from './Dashboard';
 import { RiskMap } from './map/RiskMap';
 import { Modal } from './Modal';
 import { CCTV_ROADS, loadCctvs, type Cctv, type CctvRoad } from '../lib/cctv';
@@ -27,7 +27,8 @@ interface Props {
 
 const RANK_ORDER: Record<Pass, number> = { passable: 0, narrowed: 1, blocked: 2, hold: -1 };
 const byTimeDesc = (a: Observation, b: Observation) => b.t.localeCompare(a.t);
-const KPIS: [KpiKey, string, 'danger' | 'warning' | undefined][] = [['blocked', '단절', 'danger'], ['narrowed', '좁아짐', 'warning'], ['open', '미처리 위험', 'danger'], ['hold', '판단 유보', undefined]];
+/** 첫 칸(미처리 위험)이 대표 카드 */
+const KPIS: [KpiKey, string][] = [['open', '미처리 위험 지점'], ['blocked', '단절 지점'], ['narrowed', '좁아짐 지점'], ['hold', '판단 유보']];
 const FILTER_KEY = 'roadpush.filters';
 const readFilterOpen = () => { try { return localStorage.getItem(FILTER_KEY) !== 'off'; } catch { return true; } };
 
@@ -103,13 +104,12 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
     <section id="v-map" className={filterOpen ? undefined : 'nofilter'} aria-label="위험 지도">
       {/* 화면 제목 (보이지 않게, 화면 전환 시 포커스가 여기로) */}
       <h1 className="vh" tabIndex={-1}>위험 지도</h1>
-      {sites.length ? (
-        <div className="stats" aria-label="지점 현황">
-          {KPIS.map(([k, label, tone]) => <Stat key={k} label={label} unit="곳" tone={tone} value={sites.filter((x) => siteCounts(k, x)).length} />)}
-        </div>
-      ) : (
-        <p className="stats empty">이 기간에 수집된 관측이 없습니다</p>
-      )}
+      <div className="kpis" aria-label="지점 현황">
+        {KPIS.map(([k, label], i) => (
+          <KpiCard key={k} hero={i === 0} label={label} unit="곳" value={sites.filter((x) => siteCounts(k, x)).length}
+            tone={k === 'hold' ? 'neutral' : 'risk'} delta={dayDelta(obs, f, kpiPred(k))} values={trendOf(obs, f, kpiPred(k))} />
+        ))}
+      </div>
 
       {filterOpen && <div className="filters">
         <div className="rowx">

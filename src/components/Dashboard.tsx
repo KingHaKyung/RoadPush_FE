@@ -1,4 +1,4 @@
-// 대시보드 공용 조각: 섹션 제목, 현황 줄, 행정구역 막대
+// 대시보드 공용 조각: 섹션 제목, 추세 곡선, 지표 카드, 행정구역 막대
 import type { ReactNode } from 'react';
 import { PASS, PIN_COLOR } from '../lib/constants';
 import type { Pass, Pin } from '../types';
@@ -13,21 +13,49 @@ export function SectionTitle({ title, sub, as: Tag = 'h2', size }: { title: Reac
   );
 }
 
-/** 현황 줄의 한 칸: 이름 + 숫자. tone 색은 값이 0보다 클 때만. onClick이 있으면 눌러서 거르는 버튼 */
-export function Stat({ label, value, unit, tone, note, onClick, active }: {
-  label: string; value: number | string; unit?: string; tone?: 'danger' | 'warning'; note?: string; onClick?: () => void; active?: boolean;
+/** 부드러운 추세 곡선 (Catmull-Rom → 베지어). 읽기용 값은 label로 */
+export function Sparkline({ values, label, w = 120, h = 40 }: { values: number[]; label: string; w?: number; h?: number }) {
+  const max = Math.max(1, ...values), pad = 3;
+  const p = values.map((v, i) => [pad + (i * (w - pad * 2)) / Math.max(1, values.length - 1), h - pad - (v / max) * (h - pad * 2)]);
+  let d = `M${p[0][0].toFixed(1)} ${p[0][1].toFixed(1)}`;
+  for (let i = 0; i < p.length - 1; i++) {
+    const a = p[i - 1] ?? p[i], b = p[i], c = p[i + 1], e = p[i + 2] ?? c;
+    d += `C${(b[0] + (c[0] - a[0]) / 6).toFixed(1)} ${(b[1] + (c[1] - a[1]) / 6).toFixed(1)} ${(c[0] - (e[0] - b[0]) / 6).toFixed(1)} ${(c[1] - (e[1] - b[1]) / 6).toFixed(1)} ${c[0].toFixed(1)} ${c[1].toFixed(1)}`;
+  }
+  const [lx, ly] = p[p.length - 1];
+  return (
+    <svg className="spark" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" role="img" aria-label={label}>
+      <path className="spark-area" d={`${d}L${lx.toFixed(1)} ${h}L${p[0][0].toFixed(1)} ${h}Z`} />
+      <path className="spark-line" d={d} vectorEffect="non-scaling-stroke" />
+      <circle className="spark-dot" cx={lx} cy={ly} r="3" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+/**
+ * 지표 카드: 큰 숫자 · 이름 · 어제 대비 화살표 · 추세 곡선.
+ * hero: 포인트 색으로 채운 대표 카드. tone: risk(늘면 빨강) · good(늘면 초록) · neutral. onClick이 있으면 눌러서 거르는 버튼
+ */
+export function KpiCard({ label, value, unit, delta, values, note, tone = 'risk', hero, onClick, active }: {
+  label: string; value: number | string; unit?: string; delta?: { now: number; prev: number }; values?: number[];
+  note?: string; tone?: 'risk' | 'good' | 'neutral'; hero?: boolean; onClick?: () => void; active?: boolean;
 }) {
-  const hot = tone && typeof value === 'number' && value > 0;
+  const d = delta ? delta.now - delta.prev : 0;
+  const mood = !delta || d === 0 || tone === 'neutral' ? 'flat' : (d > 0) === (tone === 'risk') ? 'bad' : 'good';
   const body = (
     <>
-      <span className="stat-l">{label}</span>
-      <span className={`stat-v${hot ? ` ${tone}` : ''}`}>{value}{unit && <small>{unit}</small>}</span>
-      {note && <span className="stat-n">{note}</span>}
+      <p className="kpi-v"><b>{value}</b>{unit && <span>{unit}</span>}</p>
+      <h3>{label}</h3>
+      {delta ? (
+        <p className={`kpi-d ${mood}`}>{d > 0 ? '↑' : d < 0 ? '↓' : '–'} {Math.abs(d)}건 <span>어제 대비</span></p>
+      ) : note && <p className="kpi-d flat">{note}</p>}
+      {values && values.some((v) => v > 0) && <div className="kpi-spark"><Sparkline values={values} label={`${label} 추세: ${values.join(', ')}건`} /></div>}
     </>
   );
+  const cls = `kpi${hero ? ' hero' : ''}${active ? ' on' : ''}`;
   return onClick
-    ? <button type="button" className={`stat${active ? ' on' : ''}`} aria-pressed={!!active} onClick={onClick}>{body}</button>
-    : <div className="stat">{body}</div>;
+    ? <button type="button" className={`${cls} kpi-btn`} aria-pressed={!!active} onClick={onClick}>{body}</button>
+    : <article className={cls}>{body}</article>;
 }
 
 /** 단순 개수 막대 목록. 누르면 그 항목으로 거르고, 다시 누르면 해제 */
