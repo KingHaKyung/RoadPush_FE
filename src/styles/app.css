@@ -79,6 +79,13 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background
 .pill-narrowed{background:var(--narrow-soft);color:var(--narrow)}
 .pill-passable{background:var(--pass-soft);color:var(--pass)}
 .pill-hold{background:var(--hold-soft);color:var(--hold)}
+/* 목록·표용 판정 표시: 색 점 + 글자 (점 색 = 지도 핀 색) */
+.pdot{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-weight:600;color:var(--ink)}
+.pdot::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--dot)}
+.pdot-blocked{--dot:#E25563}
+.pdot-narrowed{--dot:#F2A93B}
+.pdot-passable{--dot:#2BA884}
+.pdot-hold{--dot:#8B8FA8}
 .krds-badge.pill-none{background:transparent;color:var(--faint);box-shadow:inset 0 0 0 1px var(--line)}
 /* KRDS 위험 배지(판단 유보 개수·연결 실패)도 같은 로즈 */
 .krds-badge.bg-danger{background:#E25563;border-color:#E25563}
@@ -302,10 +309,6 @@ svg.map .svg-pin:focus-visible path{stroke:var(--accent)}
 .qitem{border-left:4px solid var(--c,transparent);padding-left:10px}
 .qscore{grid-row:1/3;grid-column:3;align-self:center;font-size:var(--fs-xl);font-weight:700;color:var(--ink);min-width:2ch;text-align:right}
 .qscore.hi{color:var(--blocked)}
-.t-blocked{color:var(--blocked)}
-.t-narrowed{color:var(--narrow)}
-.t-hold{color:var(--hold)}
-.t-passable{color:var(--pass)}
 /* 필터 접기: 지도가 그 자리를 쓴다 */
 #v-map.nofilter{grid-template-columns:minmax(0,1fr) 400px;grid-template-areas:"kpi kpi" "map side"}
 .filters > .rowx{margin-bottom:-6px}

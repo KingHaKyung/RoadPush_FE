@@ -11,7 +11,7 @@ import { CCTV_ROADS, loadCctvs, type Cctv, type CctvRoad } from '../lib/cctv';
 import { CctvPlayer } from './CctvPlayer';
 import { ObservationDetail } from './ObservationDetail';
 import { PeriodToggle } from './PeriodToggle';
-import { Pill } from './Pill';
+import { PassDot, Pill } from './Pill';
 
 interface Props {
   obs: Observation[];
@@ -90,7 +90,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
           <div className="rowx"><h4 className="sec">{site ? '이 지점' : '이 링크'} 관측 {list.length}건</h4>{trend}</div>
           {list.map((o) => (
             <button key={o.id} type="button" className={`orow${o === cur ? ' on' : ''}`} onClick={() => setSelObs(o.id)}>
-              <Pill pass={effPass(o)} /><span>{fmtTime(o.t)}</span><span className="small">{SRC_LABEL[o.src]} {o.dev}</span>
+              <PassDot pass={effPass(o)} /><span>{fmtTime(o.t)}</span><span className="small">{SRC_LABEL[o.src]} {o.dev}</span>
             </button>
           ))}
         </div>
@@ -179,7 +179,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
                 <span className="pl">{p.obs.place}</span>
                 <span className={`qscore${(p.obs.risk ?? 0) >= 80 ? ' hi' : ''}`}><span className="vh">위험도 </span>{p.obs.risk ?? '–'}</span>
                 <span className="sub">
-                  <b className={`t-${p.pass}`}>{PASS[p.pass].label}</b>
+                  <PassDot pass={p.pass} />
                   {p.obs.area && ` · ${p.obs.area.split(' ').pop()}`} · {fmtTime(p.obs.t)}
                   {p.obs.action !== '미처리' && ` · ${p.obs.action}`}
                   {p.obs.persist?.kind === '상습' && ` · 상습 ${p.obs.persist.n}회`}

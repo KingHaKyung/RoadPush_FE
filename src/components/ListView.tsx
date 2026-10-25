@@ -6,7 +6,7 @@ import { dayDelta, trend } from '../lib/stats';
 import type { Action, Filters, Observation, ObservationPatch, Pass, SortKey } from '../types';
 import { KpiCard, SectionTitle } from './Dashboard';
 import { PeriodToggle } from './PeriodToggle';
-import { Pill } from './Pill';
+import { PassDot } from './Pill';
 import { PersistBadge, RouteBadge, SiteBadge } from './RouteBadge';
 
 interface Props {
@@ -125,7 +125,7 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
                   <td>{o.area ?? <span className="small">—</span>}</td>
                   {/* 행 전체 클릭(마우스)과 별도로, 키보드로도 열 수 있게 위치를 버튼으로 */}
                   <td><button type="button" className="row-open" onClick={(e) => { e.stopPropagation(); onOpen(o.id); }}>{o.place}</button></td>
-                  <td><Pill pass={effPass(o)} /></td>
+                  <td><PassDot pass={effPass(o)} /></td>
                   <td className="num">{o.risk ?? <span className="small">—</span>}</td>
                   <td>{o.routes.length ? <span className="krds-badge-wrap">{o.routes.map((r) => <RouteBadge key={r.cause} route={r} />)}</span> : <span className="small">—</span>}</td>
                   <td>{o.persist || o.site ? <span className="krds-badge-wrap">{o.persist && <PersistBadge p={o.persist} />}{o.site && <SiteBadge s={o.site} />}</span> : <span className="small">—</span>}</td>
