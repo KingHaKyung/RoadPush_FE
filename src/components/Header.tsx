@@ -1,4 +1,3 @@
-import { API_BASE } from '../api/client';
 import { SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
 import type { Observation, Tab } from '../types';
@@ -10,7 +9,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export function Header({ tab, holdCount, obs, error }: { tab: Tab; holdCount: number; obs: Observation[]; error: string | null }) {
-  // 백엔드에 연결되면 실제 관측으로 최종 수신 시각·수집 경로별 건수를 보여 준다
+  // 관측으로 최종 촬영 시각·수집 경로별 건수를 보여 준다. 백엔드 연결이 끊겼을 때만 배지
   const latest = obs.reduce<string | null>((m, o) => (!m || o.t > m ? o.t : m), null);
   const bySrc = (['cctv', 'car', 'upload'] as const).map((s) => [s, obs.filter((o) => o.src === s).length] as const).filter(([, n]) => n > 0);
   return (
@@ -18,7 +17,7 @@ export function Header({ tab, holdCount, obs, error }: { tab: Tab; holdCount: nu
       <a className="skip" href="#content">본문 바로가기</a>
       <header className="top">
         <div className="top-in">
-          <div className="brand"><b>RoadPush</b><span className="krds-badge small outline-secondary">경기 성남시</span></div>
+          <div className="brand"><b>RoadPush</b></div>
           {/* KRDS 탭(라인형) 모양의 주 메뉴 */}
           <nav className="krds-tab-area top-nav" aria-label="주 메뉴">
             <div className="tab line">
@@ -35,21 +34,9 @@ export function Header({ tab, holdCount, obs, error }: { tab: Tab; holdCount: nu
             </div>
           </nav>
           <div className="status-line">
-            {API_BASE ? (
-              <>
-                {latest && <span className="live">최종 촬영 {fmtTime(latest)}</span>}
-                <span>{bySrc.map(([s, n]) => `${SRC_LABEL[s]} ${n}건`).join(' · ') || '관측 없음'}</span>
-                {error
-                  ? <span className="krds-badge small bg-danger" title={error}>백엔드 연결 실패</span>
-                  : <span className="krds-badge small outline-primary">백엔드 연결</span>}
-              </>
-            ) : (
-              <>
-                <span className="live">최종 수신 10/18 14:38</span>
-                <span>CCTV 12대 · 단속차량 2대</span>
-                <span className="krds-badge small outline-gray">예시 데이터</span>
-              </>
-            )}
+            {latest && <span className="live">최종 촬영 {fmtTime(latest)}</span>}
+            <span>{bySrc.map(([s, n]) => `${SRC_LABEL[s]} ${n}건`).join(' · ') || '관측 없음'}</span>
+            {error && <span className="krds-badge small bg-danger" title={error}>백엔드 연결 실패</span>}
           </div>
         </div>
       </header>
