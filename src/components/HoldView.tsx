@@ -78,7 +78,7 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
 
   return (
     <section id="v-hold" className="page">
-      <SectionTitle as="h1" size="page" title="판단 유보 검수" sub={`검수 대기 ${open.length}건`} />
+      <h1 className="vh" tabIndex={-1}>판단 유보 검수 · 검수 대기 {open.length}건</h1>
       <div className="kpis">
         <KpiCard hero label="검수 대기" unit="건" value={allOpen.length} delta={dayDelta(obs, f, waitPred)} values={trend(obs, f, waitPred)} />
         <KpiCard label="검수 완료" unit="건" value={all.length - allOpen.length} />

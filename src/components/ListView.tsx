@@ -4,7 +4,7 @@ import { fmtTime } from '../lib/format';
 import { compareObs, effPass, inPeriod, matchesFilters, matchesQuery } from '../lib/segments';
 import { dayDelta, trend } from '../lib/stats';
 import type { Action, Filters, Observation, ObservationPatch, Pass, SortKey } from '../types';
-import { KpiCard, SectionTitle } from './Dashboard';
+import { KpiCard } from './Dashboard';
 import { PeriodToggle } from './PeriodToggle';
 import { PassDot } from './Pill';
 import { PersistBadge, RouteBadge, SiteBadge } from './RouteBadge';
@@ -61,7 +61,8 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
 
   return (
     <section id="v-list" className="page">
-      <SectionTitle as="h1" size="page" title="관측 목록" sub={`${PERIOD_LABEL[f.period]} · ${rows.length}건`} />
+      {/* 화면 제목은 위험 지도처럼 숨긴다 (위 탭이 화면 이름을 보여 준다). 화면 전환 시 포커스가 여기로 */}
+      <h1 className="vh" tabIndex={-1}>관측 목록 · {PERIOD_LABEL[f.period]} {rows.length}건</h1>
       <div className="kpis" aria-label="관측 현황 (누르면 표를 거릅니다)">
         {KPIS.map((k, i) => {
           const pred = (o: Observation) => matchesQuery(o, f.q) && k.pred(o);

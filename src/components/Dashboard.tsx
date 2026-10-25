@@ -4,9 +4,9 @@ import { PASS, PIN_COLOR } from '../lib/constants';
 import type { Pass, Pin } from '../types';
 
 /** '주제 | 보조 설명' 제목. 가운데 세로 막대는 KRDS 기본(primary) 색 */
-export function SectionTitle({ title, sub, as: Tag = 'h2', size }: { title: ReactNode; sub?: ReactNode; as?: 'h1' | 'h2' | 'h3'; size?: 'page' }) {
+export function SectionTitle({ title, sub, as: Tag = 'h2' }: { title: ReactNode; sub?: ReactNode; as?: 'h2' | 'h3' }) {
   return (
-    <Tag className={`sec-title${size === 'page' ? ' page-title' : ''}`} tabIndex={Tag === 'h1' ? -1 : undefined}>
+    <Tag className="sec-title">
       {title}
       {sub != null && <><i className="sec-bar" aria-hidden="true" /><span className="sec-sub">{sub}</span></>}
     </Tag>
