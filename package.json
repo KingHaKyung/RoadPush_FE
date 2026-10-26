@@ -5,17 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:https": "vite --host --mode https",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "nodelink": "node --max-old-space-size=6144 scripts/build-nodelink-tiles.mjs",
     "demo-area": "node --max-old-space-size=6144 scripts/build-demo-area.mjs",
     "centerline": "node --max-old-space-size=4096 scripts/build-centerline.mjs",
-    "geocode": "node scripts/geocode-observations.mjs",
-    "cctv": "node scripts/build-cctv.mjs"
+    "geocode": "node scripts/geocode-observations.mjs"
   },
   "dependencies": {
-    "hls.js": "1.5.17",
     "krds-uiux": "1.1.0",
     "leaflet": "1.9.4",
     "leaflet.markercluster": "1.5.3",
@@ -28,6 +27,7 @@
     "@types/node": "^24.19.2",
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
+    "@vitejs/plugin-basic-ssl": "1.1.0",
     "@vitejs/plugin-react": "4.3.3",
     "typescript": "5.6.3",
     "vite": "5.4.10"

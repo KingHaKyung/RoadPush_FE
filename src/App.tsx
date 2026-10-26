@@ -59,7 +59,7 @@ export default function App() {
 
   return (
     <>
-      <Header tab={tab} holdCount={holdCount} obs={observations} error={error} />
+      <Header tab={tab} holdCount={holdCount} error={error} />
       <main id="content" tabIndex={-1}>
         {tab === 'map' && (
           <MapView obs={observations} filters={filters} setFilters={setFilters} selSeg={selSeg} selObs={selObs} focusKey={focusKey}

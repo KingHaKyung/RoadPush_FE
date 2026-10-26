@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ACTIONS, DEPTS, OPEN_ACTIONS, CL_KIND, CL_PAVE, PASS, PASS_KEYS, PIN_COLOR, RANK, SORT_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
 import { dayDelta, kpiPred, siteCounts, trend as trendOf, type KpiKey } from '../lib/stats';
@@ -6,11 +6,6 @@ import { compareObs, effPass, inPeriod, nodeName, pinKey, pinsOf, segById } from
 import type { Action, Filters, Observation, ObservationPatch, Pass, Pin, SortKey, Source } from '../types';
 import { AreaBars, KpiCard, SectionTitle } from './Dashboard';
 import { RiskMap } from './map/RiskMap';
-import { Modal } from './Modal';
-import { CCTV_ROADS, loadCctvs, type Cctv, type CctvRoad } from '../lib/cctv';
-import { CctvPlayer } from './CctvPlayer';
-import { CctvUrlList } from './CctvUrlList';
-import { CCTV_HIGHWAY } from '../lib/features';
 import { ObservationDetail } from './ObservationDetail';
 import { PeriodToggle } from './PeriodToggle';
 import { PassDot, Pill } from './Pill';
@@ -52,15 +47,6 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
   const [qSort, setQSort] = useState<SortKey>('risk');
   /** 목록에서 마우스를 올리거나 키보드로 고른 지점 (지도에서 강조) */
   const [hoverPin, setHoverPin] = useState<string | null>(null);
-  /** 교통 CCTV(UTIC) 표시 · 영상 보는 CCTV */
-  const [cctvRoads, setCctvRoads] = useState<CctvRoad[]>(CCTV_ROADS);
-  const [cctv, setCctv] = useState<Cctv | null>(null);
-  const [cctvList, setCctvList] = useState<Cctv[]>([]);
-  useEffect(() => { loadCctvs().then(setCctvList); }, []);
-  const closeCctv = useCallback(() => setCctv(null), []);
-  /** ITS 영상 주소 전체 목록 (분석용) */
-  const [urlList, setUrlList] = useState(false);
-  const closeUrlList = useCallback(() => setUrlList(false), []);
   const [filterOpen, setFilterOpen] = useState(readFilterOpen);
   const showFilters = (on: boolean) => {
     setFilterOpen(on);
@@ -102,22 +88,20 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
     if (a >= 0 && b >= 0) trend = b < a ? <span className="trend good">이전 관측보다 개선</span> : b > a ? <span className="trend bad">이전 관측보다 악화</span> : <span className="trend">이전 관측과 같음</span>;
   }
 
-  const obsList = cur && (
-    <>
-      {list.length > 1 && (
-        <div className="obslist">
-          <div className="rowx"><h4 className="sec">{site ? '이 지점' : '이 링크'} 관측 {list.length}건</h4>{trend}</div>
-          {list.map((o) => (
-            <button key={o.id} type="button" className={`orow${o === cur ? ' on' : ''}`} onClick={() => setSelObs(o.id)}>
-              <PassDot pass={effPass(o)} /><span>{fmtTime(o.t)}</span><span className="small">{SRC_LABEL[o.src]} {o.dev}</span>
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="divider" />
-      <ObservationDetail key={cur.id} o={cur} onUpdate={(p, l) => onUpdate(cur.id, p, l)} />
-    </>
+  // 같은 지점의 관측 목록은 보던 관측 아래에 접어 둔다 (펼치면 다른 관측으로 바꿔 볼 수 있다)
+  const related = list.length > 1 && (
+    <details className="od-more">
+      <summary>{site ? '이 지점' : '이 링크'} 관측 <span>{list.length}건</span>{trend}</summary>
+      <div className="obslist">
+        {list.map((o) => (
+          <button key={o.id} type="button" className={`orow${o === cur ? ' on' : ''}`} onClick={() => setSelObs(o.id)}>
+            <PassDot pass={effPass(o)} /><span>{fmtTime(o.t)}</span><span className="small">{SRC_LABEL[o.src]} {o.dev}</span>
+          </button>
+        ))}
+      </div>
+    </details>
   );
+  const obsList = cur && <ObservationDetail key={cur.id} o={cur} onUpdate={(p, l) => onUpdate(cur.id, p, l)} related={related} />;
 
   return (
     <section id="v-map" className={filterOpen ? undefined : 'nofilter'} aria-label="위험 지도">
@@ -153,25 +137,6 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
           </select>
         </div>
         <div className="fgroup"><h2>수집 경로</h2>{(['cctv', 'car', 'upload'] as Source[]).map((s) => chk('src', s, s === 'car' ? '불법주정차 단속차량' : SRC_LABEL[s], obs.filter((o) => o.src === s && inPeriod(o, f.period)).length))}</div>
-        {cctvList.length > 0 && (
-          <div className="fgroup">
-            <div className="rowx">
-              <h2>교통 CCTV</h2>
-              {CCTV_HIGHWAY && <button type="button" className="krds-btn xsmall text" onClick={() => setUrlList(true)}>영상 주소 목록</button>}
-            </div>
-            {CCTV_ROADS.map((r) => {
-              const n = cctvList.filter((c) => c.road === r).length;
-              if (!n) return null;
-              return (
-                <div key={r} className="krds-form-check fcheck">
-                  <input type="checkbox" id={`f-cctv-${r}`} checked={cctvRoads.includes(r)}
-                    onChange={(e) => setCctvRoads(e.target.checked ? [...cctvRoads, r] : cctvRoads.filter((x) => x !== r))} />
-                  <label htmlFor={`f-cctv-${r}`}>{r}<span className="cnt">{n.toLocaleString()}</span></label>
-                </div>
-              );
-            })}
-          </div>
-        )}
         {sites.length > 0 && (
           <div className="fgroup">
             <h2>행정구역</h2>
@@ -181,7 +146,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
       </div>}
 
       <div className="mapwrap">
-        <RiskMap pins={pins} selectedPin={site} hoverPin={hoverPin} cctvRoads={cctvRoads} onPickCctv={setCctv} onPickPin={(p) => { setHoverPin(null); pickPin(p); }} selected={selSeg} onSelect={(id) => selectSeg(id)} focusKey={focusKey} />
+        <RiskMap pins={pins} selectedPin={site} hoverPin={hoverPin} onPickPin={(p) => { setHoverPin(null); pickPin(p); }} selected={selSeg} onSelect={(id) => selectSeg(id)} focusKey={focusKey} />
         <div className="maptools">
           {!filterOpen && <button type="button" className="krds-btn xsmall secondary" onClick={() => showFilters(true)}>필터</button>}
           <div className="box map-legend">
@@ -255,22 +220,6 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
           </>
         ) : null}
       </div>
-      <Modal open={urlList} size="xl" label="CCTV 영상 주소 목록" onClose={closeUrlList}>
-        {urlList && <CctvUrlList />}
-      </Modal>
-      {/* 교통 CCTV 실시간 영상: ITS는 HLS, UTIC는 재생 페이지 (등록한 IP 대역에서만 재생) */}
-      <Modal open={!!cctv} size="xl" label={cctv ? `교통 CCTV ${cctv.name} 실시간 영상` : '교통 CCTV'} onClose={closeCctv}>
-        {cctv && (
-          <div className="cctv-view">
-            <div className="dh">
-              <h3>{cctv.name}</h3>
-              <div className="meta">{cctv.center && <span>{cctv.center}</span>}<span>{cctv.road}</span></div>
-            </div>
-            <CctvPlayer cctv={cctv} />
-            <p className="small">{cctv.src === 'its' ? '출처: 국가교통정보센터(ITS)' : '출처: 도시교통정보센터(UTIC) · 등록 IP에서만 재생, 최대 60초'}</p>
-          </div>
-        )}
-      </Modal>
     </section>
   );
 }

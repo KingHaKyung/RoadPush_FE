@@ -1,5 +1,5 @@
 import type { Observation } from '../types';
-import { PASS, ROUTE_LABEL, SRC_LABEL } from './constants';
+import { NO_DEPT, PASS, routeName, SRC_LABEL } from './constants';
 import { fmtTime } from './format';
 import { effPass } from './segments';
 
@@ -10,9 +10,10 @@ import { effPass } from './segments';
 export function requestText(o: Observation): string {
   const p = o.persist;
   // 원인마다 기본 부서. 둘 이상이면 같은 요청 양식을 모든 부서에 보낸다
-  const routeDepts = [...new Set(o.routes.map((r) => r.dept))];
+  // 미분류(장애물)는 기본 부서가 없어 빼고 센다
+  const routeDepts = [...new Set(o.routes.map((r) => r.dept))].filter((d) => d !== NO_DEPT);
   return [
-    `[RoadPush 보행 통로 처리 요청] ${o.routes.map((r) => `${r.type}. ${ROUTE_LABEL[r.type]}`).join(' / ')}`,
+    `[RoadPush 보행 통로 처리 요청] ${o.routes.map((r) => routeName(r.type)).join(' / ')}`,
     `담당: ${o.dept}`,
     routeDepts.length > 1 ? `함께 보낼 부서: ${routeDepts.join(', ')} (원인별 담당이 다름)` : '',
     `위치: ${o.place}${o.addr ? ` (${o.addr})` : ''}`,

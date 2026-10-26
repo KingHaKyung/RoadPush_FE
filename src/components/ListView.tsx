@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ACTIONS, DEPTS, PASS, PASS_KEYS, PERIOD_LABEL, ROUTE_LABEL, SORT_LABEL, SRC_LABEL } from '../lib/constants';
+import { ACTIONS, DEPTS, PASS, PASS_KEYS, PERIOD_LABEL, routeName, SORT_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
 import { compareObs, effPass, inPeriod, matchesFilters, matchesQuery } from '../lib/segments';
 import { dayDelta, trend } from '../lib/stats';
@@ -7,7 +7,7 @@ import type { Action, Filters, Observation, ObservationPatch, Pass, Route, SortK
 import { KpiCard } from './Dashboard';
 import { PeriodToggle } from './PeriodToggle';
 import { PassDot } from './Pill';
-import { RouteBadge } from './RouteBadge';
+import { RouteBadge, TrendBadge, trendOf } from './RouteBadge';
 
 interface Props {
   obs: Observation[];
@@ -30,31 +30,13 @@ const pageNums = (cur: number, pages: number) => {
 /** 처리 유형: 첫 유형 배지 + 나머지 유형 수 (같은 유형은 하나로). 전체는 마우스를 올리면 */
 function RouteSummary({ routes }: { routes: Route[] }) {
   const types = [...new Map(routes.map((r) => [r.type, r])).values()];
-  const all = types.map((r) => `${r.type} ${ROUTE_LABEL[r.type]} (${routes.filter((x) => x.type === r.type).map((x) => x.cause).join(', ')})`).join('\n');
+  const all = types.map((r) => `${routeName(r.type)} (${routes.filter((x) => x.type === r.type).map((x) => x.cause).join(', ')})`).join('\n');
   return (
     <span className="route-sum" title={all}>
       <RouteBadge route={types[0]} />
       {types.length > 1 && <span className="route-more" aria-label={`외 ${types.length - 1}개`}>+{types.length - 1}</span>}
     </span>
   );
-}
-
-/**
- * 현장 추이: 지속성(최근 7일 반복)과 현장 확인(요청 뒤 다음 관측)을 하나로.
- * 해소됨 > 상습 > 지속 > 확인 대기 순. 처음 감지된 건(일시)은 비운다
- */
-type Trend = { label: string; tone: 'done' | 'again' | 'stay' | 'wait'; hint: string };
-function trendOf(o: Observation): Trend | null {
-  const p = o.persist;
-  if (o.site === '해소 확인') return { label: '해소됨', tone: 'done', hint: '요청 뒤 다음 관측에서 사라짐' };
-  if (p?.kind === '상습') return { label: `상습 ${p.n}회`, tone: 'again', hint: `최근 7일 ${p.n}회, 사라졌다가 다시 나타남` };
-  if (p?.kind === '지속') return { label: `지속 ${p.days}일`, tone: 'stay', hint: `${p.days}일째 그대로 (최근 7일 ${p.n}회)` };
-  if (o.site === '새 관측 대기') return { label: '확인 대기', tone: 'wait', hint: '요청을 넘김, 다음 관측으로 해소 여부 확인 예정' };
-  return null;
-}
-function TrendBadge({ o }: { o: Observation }) {
-  const t = trendOf(o);
-  return t ? <span className={`krds-badge small trend-${t.tone}`} title={t.hint}>{t.label}</span> : <span className="small">—</span>;
 }
 
 /** 처리 대상이 아닌 관측(통과 가능·원인 없음)은 상태 대신 '해당 없음' */
@@ -116,7 +98,7 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
   const copy = () => {
     const tsv = ['촬영 시각\t수집 경로\t행정구역\t위치\t주소\tAI 판정\t위험도\t원인\t처리 유형\t지속성\t현장 확인\t담당 부서\t처리 상태\t관측 ID',
       ...rows.map((o) => [fmtTime(o.t), `${SRC_LABEL[o.src]} ${o.dev}`, o.area ?? '', o.place, o.addr ?? '', PASS[effPass(o)].label, o.risk ?? '', o.causes.join(', '),
-        o.routes.map((r) => `${r.type}. ${ROUTE_LABEL[r.type]}`).join(', '), o.persist ? `${o.persist.kind} ${o.persist.n}회` : '', o.site ?? '', o.dept, statusText(o), o.id].join('\t'))].join('\n');
+        o.routes.map((r) => routeName(r.type)).join(', '), o.persist ? `${o.persist.kind} ${o.persist.n}회` : '', o.site ?? '', o.dept, statusText(o), o.id].join('\t'))].join('\n');
     navigator.clipboard.writeText(tsv).then(() => toast(`${rows.length}건을 복사했습니다. 엑셀에 붙여넣으세요`), () => toast('복사하지 못했습니다'));
   };
   const applyBulk = () => {
