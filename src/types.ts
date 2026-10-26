@@ -2,7 +2,8 @@ export type Pass = 'blocked' | 'narrowed' | 'passable' | 'hold';
 /** 처리 상태 (백엔드 action.label과 같다) */
 export type Action = '미처리' | '현장점검 요청' | '조치 중' | '조치 완료';
 /** 처리 유형: 누가·어떻게 처리하나 (A 운영사 수거 · B 점유자 계도 · C 단속 · D 허가 확인 · E 수거 · F 정비 계획) */
-export type RouteType = 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
+/** X: 미분류 (모델이 종류를 구분 못 한 '장애물'. 담당 부서를 사람이 지정) */
+export type RouteType = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'X';
 /** 처리 경로 (화면에서만 계산해 보여 주는 안내. 백엔드에 저장하지 않는다) */
 export interface Route {
   /** 이 경로를 만든 원인 */
@@ -27,7 +28,9 @@ export interface Persistence {
   days: number;
 }
 export type Source = 'cctv' | 'car' | 'upload';
-export type Condition = 'night' | 'rain' | 'occluded' | 'mixed';
+/** 판단 유보 사유 (백엔드 uncertainty_code) */
+export type Condition = 'night' | 'rain' | 'occluded' | 'mixed'
+  | 'boundary_review' | 'boundary_failed' | 'surface_uncertain' | 'occupancy_unverified' | 'low_coverage';
 export type Review = '미검수' | '확인' | '수정';
 export type Period = 'today' | '3d' | 'all';
 /** 정렬: 날짜(최신순) · 행정구역 이름(가나다순) · 위험도(높은 순) */

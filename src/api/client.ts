@@ -89,7 +89,7 @@ export const addNote = (id: string, content: string) =>
   call<unknown>(`/observations/${id}/notes`, { method: 'POST', body: JSON.stringify({ content, author: '교통행정과' }) });
 
 const toPass = (p: ApiPass | null): Pass => (p === null || p === 'undetermined' ? 'hold' : p);
-const COND: Condition[] = ['night', 'rain', 'occluded', 'mixed'];
+const COND: Condition[] = ['night', 'rain', 'occluded', 'mixed', 'boundary_review', 'boundary_failed', 'surface_uncertain', 'occupancy_unverified', 'low_coverage'];
 const REVIEW: Record<AnalysisResponse['review_status'], Review> = { pending: '미검수', confirmed: '확인', corrected: '수정' };
 
 /** 백엔드 응답 → 화면 관측 (구간·이름은 useObservations에서 붙인다) */

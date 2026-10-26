@@ -1,5 +1,5 @@
 import { API_BASE } from '../api/client';
-import type { Action, Pass, Period, Route, RouteType, SortKey, Source } from '../types';
+import type { Action, Condition, Pass, Period, Route, RouteType, SortKey, Source } from '../types';
 
 /** 판정 이름과 글자색(app.css 판정 토큰). 지도 핀 색은 PIN_COLOR */
 export const PASS: Record<Pass, { label: string; color: string }> = {
@@ -26,8 +26,12 @@ export const DEPTS = ['미배정', '주차관리과', '도로관리과', '건설
 
 /** 처리 유형 이름 */
 export const ROUTE_LABEL: Record<RouteType, string> = {
-  A: '운영사 수거', B: '점유자 계도', C: '단속', D: '허가 확인', E: '수거', F: '정비 계획',
+  A: '운영사 수거', B: '점유자 계도', C: '단속', D: '허가 확인', E: '수거', F: '정비 계획', X: '미분류',
 };
+/** 처리 유형 표시 이름 ('C 단속'). 미분류는 글자 없이 '미분류' */
+export const routeName = (t: RouteType) => (t === 'X' ? ROUTE_LABEL.X : `${t} ${ROUTE_LABEL[t]}`);
+/** 담당 부서가 정해지지 않은 처리 경로의 부서 값 */
+export const NO_DEPT = '미배정';
 const SAFETY_REPORT = { label: '안전신문고', url: 'https://www.safetyreport.go.kr' };
 /**
  * 원인 → 처리 경로 (화면 안내용, 백엔드에 저장하지 않음). 탐지 클래스가 바뀌면 여기만 고치면 된다.
@@ -42,6 +46,8 @@ export const ROUTES: Record<string, Route> = {
   입간판: { cause: '입간판', type: 'B', dept: '광고물관리과', guide: '보도 위 입간판·배너는 광고물 정비 대상입니다.' },
   공사시설: { cause: '공사시설', type: 'D', dept: '건설관리과', guide: '도로 점용 허가를 조회해 보행 통로 확보 조건을 확인하세요. 공사가 끝났으면 방치 자재입니다.' },
   쓰레기: { cause: '쓰레기', type: 'E', dept: '청소행정과', guide: '수거일이 지났는데 남아 있으면 수거를 요청하세요.' },
+  // 길을 막았지만 모델 팀 4개 클래스에 없는 물체(쓰레기봉투·볼라드 등). 백엔드가 원인을 '장애물'로 보낸다
+  장애물: { cause: '장애물', type: 'X', dept: '미배정', guide: '종류를 구분하지 못한 장애물입니다. 사진을 보고 담당 부서를 직접 지정하세요.' },
 };
 /** 원인마다 처리 경로 (같은 원인은 한 번만, 모르는 원인은 뺀다) */
 export const routesOf = (causes: string[]): Route[] => [...new Set(causes)].flatMap((c) => (ROUTES[c] ? [ROUTES[c]] : []));
@@ -60,6 +66,10 @@ export const CL_KIND: Record<string, string> = {
 export const CL_PAVE: Record<string, string> = {
   RDQ001: '아스팔트', RDQ002: '아스팔트콘크리트', RDQ003: '콘크리트', RDQ004: '블록', RDQ005: '비포장', RDQ006: '포장',
 };
-export const COND_LABEL = { night: '야간', rain: '우천', occluded: '가림', mixed: '보도 구분' } as const;
+export const COND_LABEL: Record<Condition, string> = {
+  night: '야간', rain: '우천', occluded: '가림', mixed: '보도 구분',
+  boundary_review: '경계 검토', boundary_failed: '경계 못 찾음', surface_uncertain: '걸을 면 불확실',
+  occupancy_unverified: '장애물 범위 불확실', low_coverage: '측정 부족',
+};
 /** 기준 시각: 예시 데이터면 고정 시각, 백엔드에 연결하면 현재 시각 */
 export const DEMO_NOW = API_BASE ? new Date() : new Date('2026-10-18T14:40:00+09:00');

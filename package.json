@@ -11,11 +11,9 @@
     "nodelink": "node --max-old-space-size=6144 scripts/build-nodelink-tiles.mjs",
     "demo-area": "node --max-old-space-size=6144 scripts/build-demo-area.mjs",
     "centerline": "node --max-old-space-size=4096 scripts/build-centerline.mjs",
-    "geocode": "node scripts/geocode-observations.mjs",
-    "cctv": "node scripts/build-cctv.mjs"
+    "geocode": "node scripts/geocode-observations.mjs"
   },
   "dependencies": {
-    "hls.js": "1.5.17",
     "krds-uiux": "1.1.0",
     "leaflet": "1.9.4",
     "leaflet.markercluster": "1.5.3",

@@ -54,9 +54,6 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background
 .top-nav .tab,.top-nav .tab > ul,.top-nav .tab li,.top-nav .btn-tab{height:var(--hdr)}
 .top-nav .btn-tab{display:inline-flex;align-items:center;padding:0 14px;gap:6px;text-decoration:none}
 .status-line{margin-left:auto;display:flex;align-items:center;gap:16px;font-size:var(--fs-s);font-weight:500;color:var(--faint)}
-.status-line b{color:var(--ink);font-weight:700}
-.live{display:inline-flex;align-items:center;gap:6px}
-.live::before{content:"";width:8px;height:8px;border-radius:50%;background:#2BA884}
 
 /* KRDS 컴포넌트 위에 얹는 배치만 */
 /* 필터 항목: 한 줄 높이·글자 크기를 맞추고 개수는 오른쪽 끝에 고정폭 숫자로 */
@@ -431,31 +428,9 @@ main h1:focus{outline:none;box-shadow:none}
 .pin.hl svg{transform:scale(1.25)}
 .pin.hl .pin-body{stroke:var(--accent);stroke-width:3}
 .pin-cluster.hl .pc-n{box-shadow:0 0 0 4px var(--accent),0 1px 3px rgba(0,0,0,.3)}
-/* 교통 CCTV (UTIC): 어두운 네모 카메라, 판정 핀과 구분 */
-.cctv-mk{cursor:pointer}
-.cctv-mk svg{display:block;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.35));transition:transform .12s}
-.cctv-mk svg rect{fill:#3A3C55;stroke:#fff;stroke-width:1.5}
-.cctv-mk:hover svg,.cctv-mk:focus-visible svg{transform:scale(1.15)}
 .modal-box.modal-md{width:min(560px,100%)}
-.cctv-view{display:flex;flex-direction:column;gap:12px}
-.cctv-view .dh{padding-right:72px}
 .modal-box.modal-xl{width:min(1100px,100%)}
-.cctv-stage{position:relative;width:100%;aspect-ratio:16/9;max-height:calc(100dvh - 260px);background:#111;border-radius:var(--r-m);overflow:hidden}
-.cctv-video{display:block;width:100%;height:100%;object-fit:contain;background:#111}
-.cctv-err{position:absolute;inset:auto 0 0 0;margin:0;padding:10px 14px;background:rgba(0,0,0,.7);color:#fff;font-size:var(--fs-m)}
 /* CCTV 영상 주소 목록 (분석용) */
-.url-list{display:flex;flex-direction:column;gap:14px}
-.url-list .dh{padding-right:72px}
-.url-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.url-tools .krds-input{flex:1 1 240px;width:auto}
-.url-table{overflow:auto;max-height:calc(100dvh - 320px);border-radius:var(--r-m);box-shadow:inset 0 0 0 1px var(--line-soft)}
-.url-table th,.url-table td{font-size:var(--fs-s);vertical-align:top}
-.url-table td .small{display:block}
-.url-table code{display:block;max-width:520px;word-break:break-all;user-select:all;font-size:var(--fs-xs);color:var(--muted)}
-.cctv-err-inline{margin:0;color:var(--blocked);font-size:var(--fs-m)}
-.cctv-stage.utic{aspect-ratio:auto;max-height:none;display:flex;justify-content:center}
-.utic-crop{position:relative;overflow:hidden;flex:none}
-.utic-crop iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;background:#111}
 
 /* 처리 경로 (처리 유형·지속성·전달) */
 .route-box{border:1px solid var(--line);border-radius:var(--r-m);padding:12px;display:flex;flex-direction:column;gap:8px;margin:8px 0}
@@ -595,3 +570,50 @@ main h1:focus{outline:none;box-shadow:none}
 .filters .chip-group .krds-form-chip input:checked + .krds-form-chip-outline{background:var(--surface);color:var(--ink);font-weight:700;box-shadow:0 1px 3px rgba(40,42,90,.14)}
 .filters .chip-group .krds-form-chip input[type="radio"] ~ label.krds-form-chip-outline::before,
 .filters .chip-group .krds-form-chip input[type="radio"]:checked ~ label.krds-form-chip-outline::before{display:none!important}
+
+/* ===== 관측 상세 (패널·큰 창 공통): 위치·판정 → 사진 → 핵심 숫자 → 처리 → 접힌 정보 ===== */
+.od-head{display:flex;flex-direction:column;gap:4px}
+.od-head h3{margin:0;font-size:var(--fs-l);font-weight:700;line-height:1.35}
+.od-head .meta{margin:0}
+/* 사진 위 오른쪽 원본/분석 전환 (반투명 바탕 구간 선택) */
+.od-frame{position:relative}
+.frame-toggle{position:absolute;top:8px;right:8px}
+.frame-toggle .chip-group{flex-wrap:nowrap;gap:2px;padding:3px;border-radius:999px;background:rgba(20,22,40,.55)}
+.frame-toggle .chip-group .krds-form-chip .krds-form-chip-outline{height:26px;min-height:0;padding:0 10px;border:0;border-radius:999px;background:transparent;color:rgba(255,255,255,.85);font-size:var(--fs-xs);font-weight:600;box-shadow:none}
+.frame-toggle .chip-group .krds-form-chip input:checked + .krds-form-chip-outline{background:#fff;color:var(--ink)}
+.frame-toggle .krds-form-chip input[type="radio"] ~ label.krds-form-chip-outline::before,
+.frame-toggle .krds-form-chip input[type="radio"]:checked ~ label.krds-form-chip-outline::before{display:none!important}
+.od-view .reason{margin:0}
+/* 핵심 숫자 세 칸 */
+.od-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
+.od-stats > div{padding:10px 12px;border-radius:var(--r-m);background:var(--sunk);min-width:0}
+.od-stats dt{font-size:var(--fs-s);color:var(--muted);font-weight:500}
+.od-stats dd{margin:2px 0 0;font-size:var(--fs-xl);font-weight:700;line-height:1.2;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.od-stats dd small{margin-left:2px;font-size:var(--fs-s);font-weight:500;color:var(--muted)}
+.od-stats dd.causes{font-size:var(--fs-body);line-height:1.6}
+.od-stats .na{font-size:var(--fs-m);font-weight:500;color:var(--faint)}
+/* 처리: 처리 유형 → 담당 부서 + 안내, 버튼 */
+.od-act{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:var(--r-m);box-shadow:inset 0 0 0 1px var(--line)}
+.od-act .sec{margin:0}
+.route-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;font-size:var(--fs-body)}
+.route-line b{color:var(--accent-text)}
+.route-to{font-weight:600;color:var(--ink)}
+/* 접어 둔 정보: 처리 이력 · 위치 정보 · 같은 지점 관측 */
+.od-more{border-top:1px solid var(--line-soft);padding-top:10px}
+.od-more > summary{display:flex;align-items:center;gap:6px;list-style:none;cursor:pointer;font-size:var(--fs-m);font-weight:600;color:var(--ink)}
+.od-more > summary::-webkit-details-marker{display:none}
+.od-more > summary::after{content:"";margin-left:auto;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s}
+.od-more[open] > summary::after{transform:rotate(-135deg)}
+.od-more > summary span{color:var(--faint);font-weight:500}
+.od-more > summary .trend{margin-left:4px}
+.od-more[open] > :not(summary){margin-top:10px}
+/* 좁은 화면: 숫자 칸·모달 여백을 줄이고 숫자는 말줄임 없이 */
+.od-stats dd:not(.causes){overflow:visible;text-overflow:clip}
+@media (max-width:760px){
+  .modal-wrap{padding:12px}
+  .modal-box{padding:18px 16px 20px}
+  .od-stats{gap:6px}
+  .od-stats > div{padding:8px 10px}
+  .od-stats dd{font-size:var(--fs-l)}
+  .od-stats dd small{font-size:var(--fs-xs)}
+}

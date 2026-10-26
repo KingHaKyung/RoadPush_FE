@@ -1,6 +1,4 @@
-import { SRC_LABEL } from '../lib/constants';
-import { fmtTime } from '../lib/format';
-import type { Observation, Tab } from '../types';
+import type { Tab } from '../types';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'map', label: '위험 지도' },
@@ -8,10 +6,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'hold', label: '판단 유보' },
 ];
 
-export function Header({ tab, holdCount, obs, error }: { tab: Tab; holdCount: number; obs: Observation[]; error: string | null }) {
-  // 관측으로 최종 촬영 시각·수집 경로별 건수를 보여 준다. 백엔드 연결이 끊겼을 때만 배지
-  const latest = obs.reduce<string | null>((m, o) => (!m || o.t > m ? o.t : m), null);
-  const bySrc = (['cctv', 'car', 'upload'] as const).map((s) => [s, obs.filter((o) => o.src === s).length] as const).filter(([, n]) => n > 0);
+export function Header({ tab, holdCount, error }: { tab: Tab; holdCount: number; error: string | null }) {
   return (
     <>
       <a className="skip" href="#content">본문 바로가기</a>
@@ -33,11 +28,8 @@ export function Header({ tab, holdCount, obs, error }: { tab: Tab; holdCount: nu
               </ul>
             </div>
           </nav>
-          <div className="status-line">
-            {latest && <span className="live">최종 촬영 {fmtTime(latest)}</span>}
-            {bySrc.length ? bySrc.map(([s, n]) => <span key={s}>{SRC_LABEL[s]} <b>{n}</b>건</span>) : <span>관측 없음</span>}
-            {error && <span className="krds-badge small bg-danger" title={error}>백엔드 연결 실패</span>}
-          </div>
+          {/* 백엔드 연결이 끊겼을 때만 */}
+          {error && <div className="status-line"><span className="krds-badge small bg-danger" title={error}>백엔드 연결 실패</span></div>}
         </div>
       </header>
     </>
