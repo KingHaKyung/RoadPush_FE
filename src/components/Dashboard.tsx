@@ -1,87 +1,61 @@
-// 대시보드 공용 조각: 섹션 제목, 스파크라인, 지표 카드, 행정구역 막대
+// 대시보드 공용 조각: 섹션 제목, 추세 곡선, 지표 카드, 행정구역 막대
 import type { ReactNode } from 'react';
 import { PASS, PIN_COLOR } from '../lib/constants';
 import type { Pass, Pin } from '../types';
 
 /** '주제 | 보조 설명' 제목. 가운데 세로 막대는 KRDS 기본(primary) 색 */
-export function SectionTitle({ title, sub, as: Tag = 'h2', size }: { title: ReactNode; sub?: ReactNode; as?: 'h1' | 'h2' | 'h3'; size?: 'page' }) {
+export function SectionTitle({ title, sub, as: Tag = 'h2' }: { title: ReactNode; sub?: ReactNode; as?: 'h2' | 'h3' }) {
   return (
-    <Tag className={`sec-title${size === 'page' ? ' page-title' : ''}`} tabIndex={Tag === 'h1' ? -1 : undefined}>
+    <Tag className="sec-title">
       {title}
-      {sub != null && <><i className="sec-bar" aria-hidden="true" /><span className="sec-sub">{sub}</span></>}
+      {sub != null && <span className="sec-sub">{sub}</span>}
     </Tag>
   );
 }
 
-/** 작은 추세 그래프 (선 + 옅은 면). 읽기용 값은 label로 */
-export function Sparkline({ values, label, w = 132, h = 44 }: { values: number[]; label: string; w?: number; h?: number }) {
+/** 부드러운 추세 곡선 (Catmull-Rom → 베지어). 읽기용 값은 label로 */
+export function Sparkline({ values, label, w = 120, h = 40 }: { values: number[]; label: string; w?: number; h?: number }) {
   const max = Math.max(1, ...values), pad = 3;
-  const xy = values.map((v, i) => [pad + (i * (w - pad * 2)) / Math.max(1, values.length - 1), h - pad - (v / max) * (h - pad * 2)] as const);
-  const line = xy.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('');
-  const area = `${line}L${xy[xy.length - 1][0].toFixed(1)} ${h - pad}L${pad} ${h - pad}Z`;
-  const [lx, ly] = xy[xy.length - 1];
+  const p = values.map((v, i) => [pad + (i * (w - pad * 2)) / Math.max(1, values.length - 1), h - pad - (v / max) * (h - pad * 2)]);
+  let d = `M${p[0][0].toFixed(1)} ${p[0][1].toFixed(1)}`;
+  for (let i = 0; i < p.length - 1; i++) {
+    const a = p[i - 1] ?? p[i], b = p[i], c = p[i + 1], e = p[i + 2] ?? c;
+    d += `C${(b[0] + (c[0] - a[0]) / 6).toFixed(1)} ${(b[1] + (c[1] - a[1]) / 6).toFixed(1)} ${(c[0] - (e[0] - b[0]) / 6).toFixed(1)} ${(c[1] - (e[1] - b[1]) / 6).toFixed(1)} ${c[0].toFixed(1)} ${c[1].toFixed(1)}`;
+  }
+  const [lx, ly] = p[p.length - 1];
   return (
-    <svg className="spark" viewBox={`0 0 ${w} ${h}`} width={w} height={h} role="img" aria-label={label}>
-      <path className="spark-area" d={area} />
-      <path className="spark-line" d={line} />
-      <circle className="spark-dot" cx={lx} cy={ly} r="3" />
+    <svg className="spark" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" role="img" aria-label={label}>
+      <path className="spark-area" d={`${d}L${lx.toFixed(1)} ${h}L${p[0][0].toFixed(1)} ${h}Z`} />
+      <path className="spark-line" d={d} vectorEffect="non-scaling-stroke" />
+      <circle className="spark-dot" cx={lx} cy={ly} r="3" vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
 
 /**
- * 지표 카드: 이름 · 큰 숫자 · 증감 칩 · 추세.
- * tone: risk(늘면 빨강) · good(늘면 초록, 예: 조치 완료) · neutral(항상 회색). onClick이 있으면 눌러서 거르는 버튼
+ * 지표 카드: 큰 숫자 · 이름 · 어제 대비 화살표 · 추세 곡선.
+ * hero: 포인트 색으로 채운 대표 카드. tone: risk(늘면 빨강) · good(늘면 초록) · neutral. onClick이 있으면 눌러서 거르는 버튼
  */
-export function KpiCard({ label, value, unit, delta, values, spanLabel, note, tone = 'risk', onClick, active, accent }: {
-  label: string; value: number | string; unit?: string; delta?: { now: number; prev: number }; values?: number[]; spanLabel?: string;
-  note?: ReactNode; tone?: 'risk' | 'good' | 'neutral'; onClick?: () => void; active?: boolean;
-  /** 카드 위 선 · 큰 숫자 · 추세선 색 (의미에 맞는 KRDS 색) */
-  accent?: string;
+export function KpiCard({ label, value, unit, delta, values, note, tone = 'risk', hero, onClick, active }: {
+  label: string; value: number | string; unit?: string; delta?: { now: number; prev: number }; values?: number[];
+  note?: string; tone?: 'risk' | 'good' | 'neutral'; hero?: boolean; onClick?: () => void; active?: boolean;
 }) {
-  const style = accent ? { ['--kpi-c' as string]: accent } : undefined;
-  let chip: [string, string] | null = null;
-  if (delta) {
-    const d = delta.now - delta.prev;
-    const txt = d > 0 ? `어제보다 +${d}건` : d < 0 ? `어제보다 −${-d}건` : '어제와 같음';
-    const up = tone === 'risk' ? 'bg-light-danger' : tone === 'good' ? 'bg-light-success' : 'bg-light-gray';
-    const down = tone === 'risk' ? 'bg-light-success' : tone === 'good' ? 'bg-light-danger' : 'bg-light-gray';
-    chip = [d > 0 ? up : d < 0 ? down : 'bg-light-gray', txt];
-  }
+  const d = delta ? delta.now - delta.prev : 0;
+  const mood = !delta || d === 0 || tone === 'neutral' ? 'flat' : (d > 0) === (tone === 'risk') ? 'bad' : 'good';
   const body = (
     <>
-      <h3>{label}</h3>
       <p className="kpi-v"><b>{value}</b>{unit && <span>{unit}</span>}</p>
-      {chip ? <span className={`krds-badge ${chip[0]} kpi-d`}>{chip[1]}</span> : note && <span className="kpi-note">{note}</span>}
-      {values && (
-        <div className="kpi-spark">
-          <Sparkline values={values} label={`${label} ${spanLabel ?? ''} 관측 추세: ${values.join(', ')}건`} />
-          {spanLabel && <span className="small">{spanLabel}</span>}
-        </div>
-      )}
+      <h3>{label}</h3>
+      {delta ? (
+        <p className={`kpi-d ${mood}`}>{d > 0 ? '↑' : d < 0 ? '↓' : '–'} {Math.abs(d)}건 <span>어제 대비</span></p>
+      ) : note && <p className="kpi-d flat">{note}</p>}
+      {values && values.some((v) => v > 0) && <div className="kpi-spark"><Sparkline values={values} label={`${label} 추세: ${values.join(', ')}건`} /></div>}
     </>
   );
+  const cls = `kpi${hero ? ' hero' : ''}${active ? ' on' : ''}`;
   return onClick
-    ? <button type="button" className={`kpi kpi-btn${active ? ' on' : ''}`} style={style} aria-pressed={!!active} onClick={onClick}>{body}</button>
-    : <article className="kpi" style={style}>{body}</article>;
-}
-
-/** 단순 개수 막대 목록. 누르면 그 항목으로 거르고, 다시 누르면 해제 */
-export function CountBars<K extends string>({ rows, active, onPick }: { rows: { key: K; label: string; n: number }[]; active: K | ''; onPick: (k: K | '') => void }) {
-  const max = Math.max(1, ...rows.map((r) => r.n));
-  return (
-    <ol className="area-bars count-bars">
-      {rows.map((r) => (
-        <li key={r.key}>
-          <button type="button" className={active === r.key ? 'on' : undefined} aria-pressed={active === r.key} onClick={() => onPick(active === r.key ? '' : r.key)}>
-            <span className="ab-name">{r.label}</span>
-            <span className="ab-bar"><i style={{ width: `${(r.n / max) * 100}%` }} /></span>
-            <span className="ab-n">{r.n}</span>
-          </button>
-        </li>
-      ))}
-    </ol>
-  );
+    ? <button type="button" className={`${cls} kpi-btn`} aria-pressed={!!active} onClick={onClick}>{body}</button>
+    : <article className={cls}>{body}</article>;
 }
 
 const ORDER: Pass[] = ['blocked', 'narrowed', 'hold', 'passable'];

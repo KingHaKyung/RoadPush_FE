@@ -13,7 +13,7 @@ import { midOf, segById } from '../../lib/segments';
 import type { Pass, Segment } from '../../types';
 import type { Pin, RiskMapProps } from './types';
 
-const SELECT = '#256EF4';
+const SELECT = '#5B5ECF';
 const RISK_ORDER: Record<Pass, number> = { passable: 0, hold: 1, narrowed: 2, blocked: 3 };
 const PASS_ORDER: Pass[] = ['blocked', 'narrowed', 'hold', 'passable'];
 /** 줌 16 기준 도로 폭(px). 약도(SvgRiskMap)의 등급별 폭과 같은 비율 */
@@ -48,7 +48,7 @@ const CCTV_ZOOM = 12;
 const CCTV_ICON = '<svg viewBox="0 0 26 26" width="26" height="26" aria-hidden="true"><rect x="1" y="1" width="24" height="24" rx="6"/><path d="M6 9.5h9.5a1 1 0 0 1 1 1V12l3.5-2v6l-3.5-2v1.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1z" fill="#fff"/></svg>';
 const STATIC_IDS = new Set(SEGMENTS.map((s) => s.id));
 
-/** CSS 토큰(라이트·다크)에서 도로 색을 읽는다 */
+/** CSS 토큰에서 도로 색을 읽는다 */
 const esc = (t: string) => t.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 const token = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
@@ -213,8 +213,6 @@ export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin
       else setNote((await loadIndex()) ? '지도를 더 확대하면 전국 표준노드링크 도로가 보입니다' : null);
     };
 
-    // 다크 모드로 바뀌면 도로 색을 다시 읽는다
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
     loadCenterline().then((segs) => {
       if (seq < 0 || !segs.length) return;
       cl = segs.map(road);
@@ -223,12 +221,10 @@ export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin
       refresh();
     });
     m.on('moveend', refresh);
-    mq.addEventListener('change', refresh);
     refresh();
     return () => {
       seq = -1;
       m.off('moveend', refresh);
-      mq.removeEventListener('change', refresh);
       edges.remove(); fills.remove(); labels.remove();
       m.attributionControl.removeAttribution(CL_ATTR);
     };

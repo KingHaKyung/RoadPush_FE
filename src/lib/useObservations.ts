@@ -6,6 +6,7 @@ import type { HistoryEntry, Observation, ObservationPatch, Persistence, SiteChec
 import { DEMO_NOW, PASS, routesOf } from './constants';
 import { addMinutes } from './format';
 import { nearestSeg, pinKey, segById, segPlace } from './segments';
+import { smooth } from './smooth';
 
 type Saved = Record<string, ObservationPatch & { log?: HistoryEntry[] }>;
 // v3: 처리 상태를 백엔드와 같은 '미처리·현장점검 요청·조치 중·조치 완료'로 되돌림 (v2는 '미전달·전달됨…')
@@ -90,7 +91,7 @@ function useSampleObservations() {
     })), [saved]);
 
   const update = useCallback((ids: string | string[], patch: ObservationPatch, logTxt?: string) => {
-    setSaved((prev) => {
+    smooth(() => setSaved((prev) => {
       const next = { ...prev };
       for (const id of Array.isArray(ids) ? ids : [ids]) {
         const cur = { ...(next[id] ?? {}), ...patch };
@@ -99,7 +100,7 @@ function useSampleObservations() {
       }
       save(next);
       return next;
-    });
+    }));
     return null as string | null; // 백엔드 모드와 같은 형태 (안내 없음)
   }, []);
 
@@ -115,11 +116,16 @@ function useApiObservations() {
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
 
-  const refresh = useCallback(async () => {
-    try { setRows(await fetchObservations()); setError(null); } catch (e) { setError((e as Error).message); }
+  /** animate: 사용자가 바꾼 직후에만 부드럽게 (5초마다 다시 읽을 때는 그냥 바꾼다) */
+  const refresh = useCallback(async (animate = false) => {
+    try {
+      const next = await fetchObservations();
+      if (animate) smooth(() => setRows(next)); else setRows(next);
+      setError(null);
+    } catch (e) { setError((e as Error).message); }
   }, []);
   // 처음 한 번 + 분석 대기 중인 관측이 결과로 바뀌도록 주기적으로 다시 읽는다
-  useEffect(() => { refresh(); const t = setInterval(refresh, POLL_MS); return () => clearInterval(t); }, [refresh]);
+  useEffect(() => { refresh(); const t = setInterval(() => refresh(), POLL_MS); return () => clearInterval(t); }, [refresh]);
 
   const observations = useMemo<Observation[]>(() => derive(
     rows
@@ -166,7 +172,7 @@ function useApiObservations() {
           : patch.review === '미검수' ? '취소할 판정이 없습니다' : '지금은 처리할 수 없는 요청입니다';
       } else setError((e as Error).message);
     }
-    await refresh();
+    await refresh(true);
     return notice;
   }, [refresh]);
 
