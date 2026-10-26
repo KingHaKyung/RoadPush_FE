@@ -4,12 +4,12 @@ import { fmtTime } from './format';
 import { effPass } from './segments';
 
 /**
- * 처리 요청서 (기존 행정 시스템·메신저에 붙여 넣는 글).
+ * 요청 양식 (기존 행정 시스템·메신저에 붙여 넣는 글).
  * RoadPush는 처리 과정을 관리하지 않고, 발견한 근거를 담당 부서에 넘긴다.
  */
 export function requestText(o: Observation): string {
   const p = o.persist;
-  // 원인마다 기본 부서. 둘 이상이면 같은 요청서를 모든 부서에 보낸다
+  // 원인마다 기본 부서. 둘 이상이면 같은 요청 양식을 모든 부서에 보낸다
   const routeDepts = [...new Set(o.routes.map((r) => r.dept))];
   return [
     `[RoadPush 보행 통로 처리 요청] ${o.routes.map((r) => `${r.type}. ${ROUTE_LABEL[r.type]}`).join(' / ')}`,

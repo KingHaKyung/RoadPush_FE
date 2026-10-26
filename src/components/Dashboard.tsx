@@ -58,24 +58,6 @@ export function KpiCard({ label, value, unit, delta, values, note, tone = 'risk'
     : <article className={cls}>{body}</article>;
 }
 
-/** 단순 개수 막대 목록. 누르면 그 항목으로 거르고, 다시 누르면 해제 */
-export function CountBars<K extends string>({ rows, active, onPick }: { rows: { key: K; label: string; n: number }[]; active: K | ''; onPick: (k: K | '') => void }) {
-  const max = Math.max(1, ...rows.map((r) => r.n));
-  return (
-    <ol className="area-bars count-bars">
-      {rows.map((r) => (
-        <li key={r.key}>
-          <button type="button" className={active === r.key ? 'on' : undefined} aria-pressed={active === r.key} onClick={() => onPick(active === r.key ? '' : r.key)}>
-            <span className="ab-name">{r.label}</span>
-            <span className="ab-bar"><i style={{ width: `${(r.n / max) * 100}%` }} /></span>
-            <span className="ab-n">{r.n}</span>
-          </button>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
 const ORDER: Pass[] = ['blocked', 'narrowed', 'hold', 'passable'];
 
 /** 행정구역별 지점 수 (판정별로 쌓은 막대). 누르면 그 행정구역으로 검색 */

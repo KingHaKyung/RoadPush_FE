@@ -31,6 +31,14 @@ const RANK_ORDER: Record<Pass, number> = { passable: 0, narrowed: 1, blocked: 2,
 const byTimeDesc = (a: Observation, b: Observation) => b.t.localeCompare(a.t);
 /** 첫 칸(미처리 위험)이 대표 카드 */
 const KPIS: [KpiKey, string][] = [['open', '미처리 위험 지점'], ['blocked', '단절 지점'], ['narrowed', '좁아짐 지점'], ['hold', '판단 유보']];
+/** 카드를 누르면 거는 필터 (판정·처리 상태). act가 null이면 처리 상태 전체 */
+const KPI_APPLY: Record<KpiKey, { pass: Pass[]; act: Action[] | null }> = {
+  open: { pass: ['blocked', 'narrowed', 'hold'], act: ['미처리'] },
+  blocked: { pass: ['blocked'], act: null },
+  narrowed: { pass: ['narrowed'], act: null },
+  hold: { pass: ['hold'], act: null },
+};
+const sameSet = <T,>(s: Set<T>, a: T[]) => s.size === a.length && a.every((v) => s.has(v));
 const FILTER_KEY = 'roadpush.filters';
 /** 휴대폰에서는 필터가 지도 위 시트로 열리므로 늘 닫힌 채 시작하고, 열고 닫은 것도 기억하지 않는다 */
 const isPhone = () => window.matchMedia('(max-width:760px)').matches;
@@ -116,10 +124,16 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
       {/* 화면 제목 (보이지 않게, 화면 전환 시 포커스가 여기로) */}
       <h1 className="vh" tabIndex={-1}>위험 지도</h1>
       <div className="kpis" aria-label="지점 현황">
-        {KPIS.map(([k, label], i) => (
-          <KpiCard key={k} hero={i === 0} label={label} unit="곳" value={sites.filter((x) => siteCounts(k, x)).length}
-            tone={k === 'hold' ? 'neutral' : 'risk'} delta={dayDelta(obs, f, kpiPred(k))} values={trendOf(obs, f, kpiPred(k))} />
-        ))}
+        {KPIS.map(([k, label], i) => {
+          // 누르면 그 카드의 판정·처리 상태로 거르고, 다시 누르면 해제 (관측 목록 카드와 같은 동작)
+          const ap = KPI_APPLY[k];
+          const active = sameSet(f.pass, ap.pass) && sameSet(f.act, ap.act ?? ACTIONS);
+          return (
+            <KpiCard key={k} hero={i === 0} label={label} unit="곳" value={sites.filter((x) => siteCounts(k, x)).length}
+              tone={k === 'hold' ? 'neutral' : 'risk'} delta={dayDelta(obs, f, kpiPred(k))} values={trendOf(obs, f, kpiPred(k))}
+              active={active} onClick={() => setFilters({ ...f, pass: new Set(active ? PASS_KEYS : ap.pass), act: new Set(active ? ACTIONS : ap.act ?? ACTIONS) })} />
+          );
+        })}
       </div>
 
       {/* 휴대폰에서만 보이는 시트 바깥 영역: 누르면 닫힌다 */}
@@ -188,14 +202,14 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
                 {(Object.keys(SORT_LABEL) as SortKey[]).map((k) => <option key={k} value={k}>{SORT_LABEL[k]}</option>)}
               </select>
             </div>
-            {queue.length ? queue.map((p, i) => (
-              <button key={p.key} type="button" className="qitem" style={{ ['--c' as string]: PIN_COLOR[p.pass].fill }} onClick={() => { setHoverPin(null); pickPin(p, true); }}
+            {queue.length ? queue.map((p) => (
+              <button key={p.key} type="button" className="qitem" onClick={() => { setHoverPin(null); pickPin(p, true); }}
                 onMouseEnter={() => setHoverPin(p.key)} onMouseLeave={() => setHoverPin(null)} onFocus={() => setHoverPin(p.key)} onBlur={() => setHoverPin(null)}>
-                <span className="rk">{i + 1}</span>
+                {/* 위험도 사각형: 판정 색 옅은 바탕 + 진한 숫자 (판정과 위험도를 한 번에) */}
+                <span className={`qscore q-${p.pass}`}><span className="vh">위험도 </span>{p.obs.risk ?? '–'}</span>
                 <span className="pl">{p.obs.place}</span>
-                <span className={`qscore${(p.obs.risk ?? 0) >= 80 ? ' hi' : ''}`}><span className="vh">위험도 </span>{p.obs.risk ?? '–'}</span>
                 <span className="sub">
-                  <PassDot pass={p.pass} />
+                  <span className="qpass">{PASS[p.pass].label}</span>
                   {p.obs.area && <span>{p.obs.area.split(' ').pop()}</span>}
                   <span>{fmtTime(p.obs.t)}</span>
                   {p.obs.action !== '미처리' && <span>{p.obs.action}</span>}

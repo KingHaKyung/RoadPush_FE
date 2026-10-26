@@ -4,7 +4,7 @@ import { fmtTime } from '../lib/format';
 import { compareObs, matchesQuery } from '../lib/segments';
 import { dayDelta, trend } from '../lib/stats';
 import type { Condition, Filters, Observation, ObservationPatch, Pass, SortKey } from '../types';
-import { CountBars, KpiCard, SectionTitle } from './Dashboard';
+import { KpiCard, SectionTitle } from './Dashboard';
 import { FrameView } from './FrameView';
 import { Modal } from './Modal';
 import { ObservationDetail } from './ObservationDetail';
@@ -29,9 +29,12 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
   const closeModal = useCallback(() => setOpenId(null), []);
   const all = obs.filter((o) => o.pass === 'hold' && matchesQuery(o, f.q)).sort(cmp);
   const allOpen = all.filter((o) => !o.human);
+  /** 지표 카드로 거르기: 검수 대기만 · 검수 완료만 · 재분석 요청만 (다시 누르면 해제) */
+  const [view, setView] = useState<'' | 'open' | 'done' | 're'>('');
+  const pickView = (v: 'open' | 'done' | 're') => setView((cur) => (cur === v ? '' : v));
   const hold = cond ? all.filter((o) => o.cond === cond) : all;
-  const open = hold.filter((o) => !o.human);
-  const done = hold.filter((o) => o.human);
+  const open = view === 'done' ? [] : hold.filter((o) => !o.human && (view !== 're' || o.reanalyze));
+  const done = view === '' || view === 'done' ? hold.filter((o) => o.human) : [];
 
   // 지표 카드 (검색어까지만 반영, 사유 선택과는 무관)
   const waitPred = (o: Observation) => o.pass === 'hold' && !o.human && matchesQuery(o, f.q);
@@ -49,7 +52,7 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
   ) : (
     <div className="hacts">
       {(['passable', 'narrowed', 'blocked'] as Pass[]).map((p) => (
-        <button key={p} type="button" className="krds-btn small secondary"
+        <button key={p} type="button" className={`krds-btn small judge judge-${p}`}
           onClick={() => { onUpdate(o.id, { human: p, review: '수정' }, `사람 판정: ${PASS[p].label}`); toast(`'${PASS[p].label}'(으)로 판정했습니다`); }}>
           {PASS[p].label}
         </button>
@@ -80,27 +83,41 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
     <section id="v-hold" className="page">
       <h1 className="vh" tabIndex={-1}>판단 유보 검수 · 검수 대기 {open.length}건</h1>
       <div className="kpis">
-        <KpiCard hero label="검수 대기" unit="건" value={allOpen.length} delta={dayDelta(obs, f, waitPred)} values={trend(obs, f, waitPred)} />
-        <KpiCard label="검수 완료" unit="건" value={all.length - allOpen.length} />
-        <KpiCard label="재분석 요청" unit="건" value={allOpen.filter((o) => o.reanalyze).length} />
-        <KpiCard label="가장 오래 기다린 건" unit={oldest ? '시간' : undefined} value={oldest ? waitH : '—'} note={oldest?.place} />
+        <KpiCard hero label="검수 대기" unit="건" value={allOpen.length} delta={dayDelta(obs, f, waitPred)} values={trend(obs, f, waitPred)} active={view === 'open'} onClick={() => pickView('open')} />
+        <KpiCard label="검수 완료" unit="건" value={all.length - allOpen.length} active={view === 'done'} onClick={() => pickView('done')} />
+        <KpiCard label="재분석 요청" unit="건" value={allOpen.filter((o) => o.reanalyze).length} active={view === 're'} onClick={() => pickView('re')} />
+        {/* 가장 오래 기다린 건: 거르기 대신 그 건의 검수 창을 바로 연다 */}
+        <KpiCard label="가장 오래 기다린 건" unit={oldest ? '시간' : undefined} value={oldest ? waitH : '—'} note={oldest?.place} onClick={oldest ? () => setOpenId(oldest.id) : undefined} />
       </div>
-      <div className="card hold-reasons">
-        <SectionTitle as="h2" title="유보 사유" sub={cond ? COND_LABEL[cond] : undefined} />
-        {reasons.length ? <CountBars rows={reasons} active={cond} onPick={setCond} /> : <p className="small">검수 대기 중인 건이 없습니다.</p>}
+      {/* 한 줄: 관측 목록처럼 검색·정렬을 왼쪽에, 그 옆에 유보 사유로 거르기 (휴대폰은 두 줄) */}
+      <div className="card hold-bar">
+        <div className="hb-tools">
+          <label className="vh" htmlFor="hq">검색</label>
+          <input className="krds-input small" id="hq" type="search" placeholder="위치·행정구역·장비·관측 ID" value={f.q} onChange={(e) => setFilters({ ...f, q: e.target.value })} />
+          <label className="vh" htmlFor="hs">정렬</label>
+          <select className="krds-form-select-sort small" id="hs" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+            {(Object.keys(SORT_LABEL) as SortKey[]).map((k) => <option key={k} value={k}>{SORT_LABEL[k]}</option>)}
+          </select>
+        </div>
+        <h2 className="hr-title">유보 사유</h2>
+        {reasons.length ? (
+          <div className="reason-chips" role="group" aria-label="유보 사유로 거르기 (다시 누르면 해제)">
+            {reasons.map((r) => (
+              <button key={r.key} type="button" className="reason-chip" aria-pressed={cond === r.key} onClick={() => setCond(cond === r.key ? '' : r.key)}>
+                {r.label}<b>{r.n}</b>
+              </button>
+            ))}
+          </div>
+        ) : <p className="small">검수 대기 중인 건이 없습니다.</p>}
       </div>
-      <div className="toolbar">
-        <label className="vh" htmlFor="hs">정렬</label>
-        <select className="krds-form-select-sort small tb-sort" id="hs" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
-          {(Object.keys(SORT_LABEL) as SortKey[]).map((k) => <option key={k} value={k}>{SORT_LABEL[k]}</option>)}
-        </select>
-        <label className="vh" htmlFor="hq">검색</label>
-        <input className="krds-input small tb-q" id="hq" type="search" placeholder="위치·행정구역·장비·관측 ID" value={f.q} onChange={(e) => setFilters({ ...f, q: e.target.value })} />
-        <span className="grow" />
-      </div>
-      <SectionTitle title="검수 대기" sub={`${open.length}건`} />
-      <div className="holdgrid">{open.length ? open.map(card) : <p className="small">{f.q.trim() ? `'${f.q.trim()}'에 맞는 판단 유보 건이 없습니다.` : '검수할 판단 유보 건이 없습니다.'}</p>}</div>
-      {done.length > 0 && <><SectionTitle title="검수 완료" sub={`${done.length}건`} /><div className="holdgrid">{done.map(card)}</div></>}
+      {view !== 'done' && <>
+        <SectionTitle title={view === 're' ? '재분석 요청' : '검수 대기'} sub={`${open.length}건`} />
+        <div className="holdgrid">{open.length ? open.map(card) : <p className="small">{f.q.trim() ? `'${f.q.trim()}'에 맞는 판단 유보 건이 없습니다.` : view === 're' ? '재분석을 요청한 건이 없습니다.' : '검수할 판단 유보 건이 없습니다.'}</p>}</div>
+      </>}
+      {(done.length > 0 || view === 'done') && <>
+        <SectionTitle title="검수 완료" sub={`${done.length}건`} />
+        <div className="holdgrid">{done.length ? done.map(card) : <p className="small">아직 검수를 마친 건이 없습니다.</p>}</div>
+      </>}
       <Modal open={!!opened} label={opened ? `${opened.place} 판단 유보 검수` : '판단 유보 검수'} onClose={closeModal}>
         {opened && <ObservationDetail key={opened.id} o={opened} layout="wide" onUpdate={(p, l) => onUpdate(opened.id, p, l)}
           extra={<div className="hold-judge"><h4 className="sec">사람 판정</h4>{actions(opened)}</div>} />}
