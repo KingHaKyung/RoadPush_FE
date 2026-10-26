@@ -25,6 +25,9 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [bulkDept, setBulkDept] = useState('');
   const [bulkAct, setBulkAct] = useState('');
+  /** 휴대폰에서 기간·판정·처리 상태·부서·정렬을 펼쳤는지. 기본(최근 3일·전체·날짜순)과 다른 조건 수를 버튼에 보여 준다 */
+  const [moreOpen, setMoreOpen] = useState(false);
+  const nCond = [f.period !== '3d', f.pass.size === 1, f.act.size === 1, !!f.dept, f.sort !== 'time'].filter(Boolean).length;
   const rows = obs.filter((o) => matchesFilters(o, f)).sort(compareObs(f.sort));
 
   // 지표 카드: 기간·수집 경로·검색어까지만 걸린 관측 기준 (판정·처리 상태는 카드로 고른다)
@@ -71,8 +74,13 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
         })}
       </div>
       <div className="toolbar">
+        {/* 휴대폰에서만 보이는 버튼: 나머지 조건을 접어 둔다 (조건 → 검색 순) */}
+        <button type="button" className={`krds-btn small ${nCond ? 'secondary' : 'tertiary'} tb-toggle`} aria-expanded={moreOpen} aria-controls="tb-more" onClick={() => setMoreOpen((v) => !v)}>
+          조건{nCond > 0 && ` ${nCond}`}
+        </button>
         <label className="vh" htmlFor="q">검색</label>
-        <input className="krds-input small" id="q" type="search" placeholder="위치·행정구역·장비·관측 ID" value={f.q} style={{ width: 240 }} onChange={(e) => setFilters({ ...f, q: e.target.value })} />
+        <input className="krds-input small tb-q" id="q" type="search" placeholder="위치·행정구역·장비·관측 ID" value={f.q} onChange={(e) => setFilters({ ...f, q: e.target.value })} />
+        <div id="tb-more" className={`tb-more${moreOpen ? ' open' : ''}`}>
         <PeriodToggle value={f.period} onChange={(period) => setFilters({ ...f, period })} />
         <label className="vh" htmlFor="fp">판정</label>
         <select className="krds-form-select small" id="fp" value={f.pass.size === 1 ? [...f.pass][0] : ''} onChange={(e) => setFilters({ ...f, pass: new Set(e.target.value ? [e.target.value as Pass] : PASS_KEYS) })}>
@@ -90,8 +98,9 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
         <select className="krds-form-select-sort small" id="fs" value={f.sort} onChange={(e) => setFilters({ ...f, sort: e.target.value as SortKey })}>
           {(Object.keys(SORT_LABEL) as SortKey[]).map((k) => <option key={k} value={k}>{SORT_LABEL[k]}</option>)}
         </select>
+        </div>
         <span className="grow" />
-        <button type="button" className="krds-btn small tertiary" onClick={copy}>표 복사(엑셀용)</button>
+        <button type="button" className="krds-btn small tertiary tb-copy" onClick={copy}>표 복사(엑셀용)</button>
       </div>
       {picked.size > 0 && (
         <div className="bulk">
@@ -121,26 +130,26 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
               return (
                 <tr key={o.id} className={picked.has(o.id) ? 'on' : ''} onClick={() => onOpen(o.id)}>
                   <td className="cb" onClick={(e) => e.stopPropagation()}><div className="krds-form-check"><input type="checkbox" id={`pick-${o.id}`} checked={picked.has(o.id)} onChange={(e) => togglePick(o.id, e.target.checked)} /><label htmlFor={`pick-${o.id}`}><span className="vh">{o.place} 선택</span></label></div></td>
-                  <td>{fmtTime(o.t)}</td>
-                  <td>{SRC_LABEL[o.src]} <span className="small">{o.dev}</span></td>
-                  <td>{o.area ?? <span className="small">—</span>}</td>
+                  <td className="c-time">{fmtTime(o.t)}</td>
+                  <td className="c-src">{SRC_LABEL[o.src]} <span className="small">{o.dev}</span></td>
+                  <td className="c-area">{o.area ?? <span className="small">—</span>}</td>
                   {/* 행 전체 클릭(마우스)과 별도로, 키보드로도 열 수 있게 위치를 버튼으로 */}
-                  <td><button type="button" className="row-open" onClick={(e) => { e.stopPropagation(); onOpen(o.id); }}>{o.place}</button></td>
-                  <td><PassDot pass={effPass(o)} /></td>
-                  <td className="num">{o.risk ?? <span className="small">—</span>}</td>
-                  <td>{o.routes.length ? <span className="krds-badge-wrap">{o.routes.map((r) => <RouteBadge key={r.cause} route={r} />)}</span> : <span className="small">—</span>}</td>
-                  <td>{o.persist || o.site ? <span className="krds-badge-wrap">{o.persist && <PersistBadge p={o.persist} />}{o.site && <SiteBadge s={o.site} />}</span> : <span className="small">—</span>}</td>
-                  <td>{o.dept === '미배정' ? <span className="small">미배정</span> : o.dept}</td>
-                  <td onClick={(e) => e.stopPropagation()}>
+                  <td className="c-place"><button type="button" className="row-open" onClick={(e) => { e.stopPropagation(); onOpen(o.id); }}>{o.place}</button></td>
+                  <td className="c-pass"><PassDot pass={effPass(o)} /></td>
+                  <td className={`num c-risk${(o.risk ?? 0) >= 80 ? ' hi' : ''}`}>{o.risk ?? <span className="small">—</span>}</td>
+                  <td className="c-route">{o.routes.length ? <span className="krds-badge-wrap">{o.routes.map((r) => <RouteBadge key={r.cause} route={r} />)}</span> : <span className="small">—</span>}</td>
+                  <td className={`c-persist${o.persist || o.site ? '' : ' empty'}`}>{o.persist || o.site ? <span className="krds-badge-wrap">{o.persist && <PersistBadge p={o.persist} />}{o.site && <SiteBadge s={o.site} />}</span> : <span className="small">—</span>}</td>
+                  <td className="c-dept">{o.dept === '미배정' ? <span className="small">미배정</span> : o.dept}</td>
+                  <td className="c-act" onClick={(e) => e.stopPropagation()}>
                     {!o.routes.length && o.action === '미처리' ? <span className="small">{statusText(o)}</span> : <select className="krds-form-select small status" data-v={o.action} aria-label={`${o.place} 처리 상태`} value={o.action}
                       onChange={(e) => { onUpdate(o.id, { action: e.target.value as Action }, `처리 상태: ${e.target.value}`); toast('처리 상태를 바꿨습니다'); }}>
                       {ACTIONS.map((a) => <option key={a}>{a}</option>)}
                     </select>}
                   </td>
-                  <td className="small last" title={l.txt}>{fmtTime(l.t)} {l.txt}</td>
+                  <td className="small last c-last" title={l.txt}>{fmtTime(l.t)} {l.txt}</td>
                 </tr>
               );
-            }) : <tr><td colSpan={12} className="small" style={{ textAlign: 'center', padding: 32 }}>조건에 맞는 관측이 없습니다.</td></tr>}
+            }) : <tr className="empty-row"><td colSpan={12} className="small" style={{ textAlign: 'center', padding: 32 }}>조건에 맞는 관측이 없습니다.<br />검색어나 조건을 바꿔 보세요.</td></tr>}
           </tbody>
         </table>
       </div>

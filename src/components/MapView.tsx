@@ -9,6 +9,8 @@ import { RiskMap } from './map/RiskMap';
 import { Modal } from './Modal';
 import { CCTV_ROADS, loadCctvs, type Cctv, type CctvRoad } from '../lib/cctv';
 import { CctvPlayer } from './CctvPlayer';
+import { CctvUrlList } from './CctvUrlList';
+import { CCTV_HIGHWAY } from '../lib/features';
 import { ObservationDetail } from './ObservationDetail';
 import { PeriodToggle } from './PeriodToggle';
 import { PassDot, Pill } from './Pill';
@@ -30,7 +32,12 @@ const byTimeDesc = (a: Observation, b: Observation) => b.t.localeCompare(a.t);
 /** 첫 칸(미처리 위험)이 대표 카드 */
 const KPIS: [KpiKey, string][] = [['open', '미처리 위험 지점'], ['blocked', '단절 지점'], ['narrowed', '좁아짐 지점'], ['hold', '판단 유보']];
 const FILTER_KEY = 'roadpush.filters';
-const readFilterOpen = () => { try { return localStorage.getItem(FILTER_KEY) !== 'off'; } catch { return true; } };
+/** 휴대폰에서는 필터가 지도 위 시트로 열리므로 늘 닫힌 채 시작하고, 열고 닫은 것도 기억하지 않는다 */
+const isPhone = () => window.matchMedia('(max-width:760px)').matches;
+const readFilterOpen = () => {
+  if (isPhone()) return false;
+  try { return localStorage.getItem(FILTER_KEY) !== 'off'; } catch { return true; }
+};
 
 export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey, selectSeg, setSelObs, onUpdate }: Props) {
   /** 우선 점검 지점 정렬 (관측 목록과 따로, 기본은 위험도순) */
@@ -43,9 +50,13 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
   const [cctvList, setCctvList] = useState<Cctv[]>([]);
   useEffect(() => { loadCctvs().then(setCctvList); }, []);
   const closeCctv = useCallback(() => setCctv(null), []);
+  /** ITS 영상 주소 전체 목록 (분석용) */
+  const [urlList, setUrlList] = useState(false);
+  const closeUrlList = useCallback(() => setUrlList(false), []);
   const [filterOpen, setFilterOpen] = useState(readFilterOpen);
   const showFilters = (on: boolean) => {
     setFilterOpen(on);
+    if (isPhone()) return;
     try { localStorage.setItem(FILTER_KEY, on ? 'on' : 'off'); } catch { /* 저장 못 해도 화면은 그대로 */ }
   };
 
@@ -111,10 +122,12 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
         ))}
       </div>
 
+      {/* 휴대폰에서만 보이는 시트 바깥 영역: 누르면 닫힌다 */}
+      {filterOpen && <button type="button" className="filter-scrim" aria-label="필터 닫기" onClick={() => showFilters(false)} />}
       {filterOpen && <div className="filters">
         <div className="rowx">
           <SectionTitle title="필터" sub={`${sites.length}곳`} />
-          <button type="button" className="krds-btn xsmall text" onClick={() => showFilters(false)}>접기</button>
+          <button type="button" className="krds-btn xsmall text" onClick={() => showFilters(false)}>{isPhone() ? '닫기' : '접기'}</button>
         </div>
         <div className="fgroup"><h2>기간</h2><PeriodToggle value={f.period} onChange={(period) => setFilters({ ...f, period })} /></div>
         <div className="fgroup"><h2>판정</h2>{PASS_KEYS.map((p) => chk('pass', p, PASS[p].label, cnt(p), PIN_COLOR[p].fill))}</div>
@@ -128,7 +141,10 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
         <div className="fgroup"><h2>수집 경로</h2>{(['cctv', 'car', 'upload'] as Source[]).map((s) => chk('src', s, s === 'car' ? '불법주정차 단속차량' : SRC_LABEL[s], obs.filter((o) => o.src === s && inPeriod(o, f.period)).length))}</div>
         {cctvList.length > 0 && (
           <div className="fgroup">
-            <h2>교통 CCTV</h2>
+            <div className="rowx">
+              <h2>교통 CCTV</h2>
+              {CCTV_HIGHWAY && <button type="button" className="krds-btn xsmall text" onClick={() => setUrlList(true)}>영상 주소 목록</button>}
+            </div>
             {CCTV_ROADS.map((r) => {
               const n = cctvList.filter((c) => c.road === r).length;
               if (!n) return null;
@@ -136,7 +152,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
                 <div key={r} className="krds-form-check fcheck">
                   <input type="checkbox" id={`f-cctv-${r}`} checked={cctvRoads.includes(r)}
                     onChange={(e) => setCctvRoads(e.target.checked ? [...cctvRoads, r] : cctvRoads.filter((x) => x !== r))} />
-                  <label htmlFor={`f-cctv-${r}`}><i className="fdot cam" aria-hidden="true" />{r}<span className="cnt">{n}</span></label>
+                  <label htmlFor={`f-cctv-${r}`}>{r}<span className="cnt">{n.toLocaleString()}</span></label>
                 </div>
               );
             })}
@@ -180,9 +196,10 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
                 <span className={`qscore${(p.obs.risk ?? 0) >= 80 ? ' hi' : ''}`}><span className="vh">위험도 </span>{p.obs.risk ?? '–'}</span>
                 <span className="sub">
                   <PassDot pass={p.pass} />
-                  {p.obs.area && ` · ${p.obs.area.split(' ').pop()}`} · {fmtTime(p.obs.t)}
-                  {p.obs.action !== '미처리' && ` · ${p.obs.action}`}
-                  {p.obs.persist?.kind === '상습' && ` · 상습 ${p.obs.persist.n}회`}
+                  {p.obs.area && <span>{p.obs.area.split(' ').pop()}</span>}
+                  <span>{fmtTime(p.obs.t)}</span>
+                  {p.obs.action !== '미처리' && <span>{p.obs.action}</span>}
+                  {p.obs.persist?.kind === '상습' && <span className="hot">상습 {p.obs.persist.n}회</span>}
                 </span>
               </button>
             )) : <p className="small">{f.q.trim() ? `'${f.q.trim()}'에 맞는 지점 없음` : '점검할 지점 없음'}</p>}
@@ -224,6 +241,9 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
           </>
         ) : null}
       </div>
+      <Modal open={urlList} size="xl" label="CCTV 영상 주소 목록" onClose={closeUrlList}>
+        {urlList && <CctvUrlList />}
+      </Modal>
       {/* 교통 CCTV 실시간 영상: ITS는 HLS, UTIC는 재생 페이지 (등록한 IP 대역에서만 재생) */}
       <Modal open={!!cctv} size="xl" label={cctv ? `교통 CCTV ${cctv.name} 실시간 영상` : '교통 CCTV'} onClose={closeCctv}>
         {cctv && (

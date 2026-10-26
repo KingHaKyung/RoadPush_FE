@@ -1,6 +1,6 @@
 import { defineConfig, loadEnv, type Plugin, type ProxyOptions } from 'vite';
 import react from '@vitejs/plugin-react';
-import { itsList, itsStream } from './api/_its';
+import { itsList, itsStream, itsUrls, urlsCsv } from './api/_its';
 import { roadTile } from './api/_roads';
 
 /**
@@ -89,6 +89,7 @@ function uticPlayer(key: string): Plugin {
  * ITS 국가교통정보센터 CCTV (키: .env의 ITS_API_KEY, 응답에는 넣지 않는다). 배포 환경의 api/its/*와 같은 동작.
  * - /api/its/cctvs : 전국 고속도로·국도 CCTV 위치. 약 30초 걸려 처음 요청 때 받아 6시간 캐시한다.
  * - /api/its/stream?type=&name=&lat=&lng= : 카메라를 열 때 지금의 HLS 주소를 준다.
+ * - /api/its/urls[?format=csv] : 전국 CCTV 영상 주소 목록 (분석용).
  */
 function itsCctv(key: string): Plugin {
   let cache: { at: number; body: string } | null = null;
@@ -107,6 +108,27 @@ function itsCctv(key: string): Plugin {
         } catch (e) {
           res.statusCode = 502;
           res.end(JSON.stringify({ error: (e as Error).message, cctvs: [] }));
+        }
+      });
+      // 영상 주소 목록: 호출 한도를 아끼려고 30분 캐시
+      let urls: { at: number; data: Awaited<ReturnType<typeof itsUrls>> } | null = null;
+      server.middlewares.use('/api/its/urls', async (req, res) => {
+        const csv = new URL((req as { url?: string }).url ?? '', 'http://x').searchParams.get('format') === 'csv';
+        try {
+          if (!key) throw new Error('.env에 ITS_API_KEY가 없습니다');
+          if (!urls || Date.now() - urls.at > 30 * 60e3) urls = { at: Date.now(), data: await itsUrls(key) };
+          if (csv) {
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', 'attachment; filename="its-cctv-urls.csv"');
+            res.end(urlsCsv(urls.data));
+          } else {
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify(urls.data));
+          }
+        } catch (e) {
+          res.statusCode = 502;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ error: (e as Error).message }));
         }
       });
       server.middlewares.use('/api/its/stream', async (req, res) => {

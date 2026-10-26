@@ -8,7 +8,7 @@ export function SectionTitle({ title, sub, as: Tag = 'h2' }: { title: ReactNode;
   return (
     <Tag className="sec-title">
       {title}
-      {sub != null && <><i className="sec-bar" aria-hidden="true" /><span className="sec-sub">{sub}</span></>}
+      {sub != null && <span className="sec-sub">{sub}</span>}
     </Tag>
   );
 }

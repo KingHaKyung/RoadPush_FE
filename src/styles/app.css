@@ -12,17 +12,18 @@
   --bg:#F3F4FA; --surface:var(--krds-light-color-background-white); --sunk:#F6F6FB;
   --shadow:0 1px 2px rgba(40,42,90,.04),0 6px 20px rgba(40,42,90,.06); --shadow-hi:0 2px 4px rgba(40,42,90,.06),0 12px 32px rgba(40,42,90,.12);
   /* 글자·선: 인디고와 어울리게 살짝 푸른 회색 */
-  --ink:#1F2033; --muted:#5C5F77; --faint:#878AA0; --line:#E2E3EE; --line-soft:#ECEDF5;
+  /* 대비(WCAG AA): muted 흰 바탕 7.6:1, faint 5.4:1 (옅은 인디고 바탕에서도 4.5:1 이상) */
+  --ink:#1F2033; --muted:#4E5168; --faint:#666981; --line:#E2E3EE; --line-soft:#ECEDF5;
   --accent:var(--krds-color-light-primary-50); --accent-hover:var(--krds-color-light-primary-60); --accent-ink:#FFFFFF;
   --accent-text:var(--krds-color-light-primary-60); --accent-soft:var(--krds-color-light-primary-5);
   /* 판정 색 한 벌: 글자(흰 바탕 4.5:1 이상) · 옅은 배경. 지도 핀 채움색은 constants.ts PIN_COLOR */
-  --blocked:#C93D4D; --narrow:#9A6400; --pass:#1C7F62; --hold:#5F637A;
+  --blocked:#B8343F; --narrow:#8A5900; --pass:#17705A; --hold:#5A5E75;
   --blocked-soft:#FDECEE; --narrow-soft:#FEF3E0; --pass-soft:#E4F5EF; --hold-soft:#EEEFF5;
   --road:#FFFFFF; --road-edge:#DADCE8; --block:#ECEDF4; --park:#DCEBE4;
   --frame-sky:#CDD1D5; --frame-bld:#B1B8BE; --frame-road:#6D7882; --frame-walk:#B9B2A6;
   --scrim:rgba(19,20,22,.45);
   --f-body:'Pretendard GOV','Pretendard',-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
-  --r-s:var(--krds-radius-small2,4px); --r-m:8px; --r-l:16px; --hdr:64px;
+  --r-s:var(--krds-radius-small2,4px); --r-m:10px; --r-l:16px; --hdr:64px;
   /* 글자 크기는 이 일곱 단계만 쓴다 */
   --fs-xs:12px; --fs-s:13px; --fs-m:14px; --fs-body:15px; --fs-l:16px; --fs-xl:20px; --fs-2xl:28px;
 }
@@ -64,13 +65,15 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background
 .top-nav .tab li{display:flex}
 .top-nav .tab,.top-nav .tab > ul,.top-nav .tab li,.top-nav .btn-tab{height:var(--hdr)}
 .top-nav .btn-tab{display:inline-flex;align-items:center;padding:0 14px;gap:6px;text-decoration:none}
-.status-line{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:var(--fs-s);color:var(--faint)}
+.status-line{margin-left:auto;display:flex;align-items:center;gap:16px;font-size:var(--fs-s);font-weight:500;color:var(--faint)}
+.status-line b{color:var(--ink);font-weight:700}
 .live{display:inline-flex;align-items:center;gap:6px}
 .live::before{content:"";width:8px;height:8px;border-radius:50%;background:#2BA884}
 
 /* KRDS 컴포넌트 위에 얹는 배치만 */
-.fcheck > label{display:flex;width:100%}
-.fcheck .cnt{margin-left:auto;color:var(--faint);font-size:var(--fs-s)}
+/* 필터 항목: 한 줄 높이·글자 크기를 맞추고 개수는 오른쪽 끝에 고정폭 숫자로 */
+.fcheck > label{display:flex;align-items:center;width:100%;min-height:30px;font-size:var(--fs-m);color:var(--ink)}
+.fcheck .cnt{margin-left:auto;padding-left:12px;color:var(--faint);font-size:var(--fs-s);font-weight:500;font-variant-numeric:tabular-nums}
 .chip-group{display:flex;flex-wrap:wrap;gap:6px}
 /* 판정 배지: 다섯 라벨(단절·좁아짐·통과 가능·판단 유보·관측 없음)이 같은 너비 */
 /* KRDS 라벨 최소 크기(label-xsmall 13px)·굵게, 너비는 가장 긴 '통과 가능'에 맞춤 */
@@ -89,17 +92,21 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background
 .krds-badge.pill-none{background:transparent;color:var(--faint);box-shadow:inset 0 0 0 1px var(--line)}
 /* KRDS 위험 배지(판단 유보 개수·연결 실패)도 같은 로즈 */
 .krds-badge.bg-danger{background:#E25563;border-color:#E25563}
-.small{font-size:var(--fs-s);color:var(--faint)}
+/* 보조 정보: 작고 회색이라 굵기 500으로 흐려 보이지 않게 */
+.small{font-size:var(--fs-s);font-weight:500;color:var(--faint)}
 .mono{font-size:var(--fs-s);color:var(--faint);letter-spacing:.2px}
 
 /* ===== 지도 화면: 3단 ===== */
 /* 위험 지도: 회색 바탕 위 흰 카드 (지표 줄 / 필터 · 지도 · 우선 점검) */
 #v-map{display:grid;grid-template-columns:272px minmax(0,1fr) 400px;grid-template-rows:auto minmax(0,1fr);grid-template-areas:"filters kpi kpi" "filters map side";gap:16px;padding:16px;background:var(--bg);height:calc(100dvh - var(--hdr) - 1px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:660px}
 .card,.filters,.side,.mapwrap,.kpi{background:var(--surface);border:0;border-radius:var(--r-l);box-shadow:var(--shadow)}
-.filters{grid-area:filters;overflow-y:auto;padding:18px 16px 24px;display:flex;flex-direction:column;gap:18px}
-.fgroup{display:flex;flex-direction:column;gap:4px}
-.fgroup h2{font-size:var(--fs-m);font-weight:700;margin:0 0 4px;color:var(--ink)}
-.fgroup + .fgroup{border-top:1px solid var(--line-soft);padding-top:14px}
+.filters{grid-area:filters;overflow-y:auto;padding:18px 18px 24px;display:flex;flex-direction:column;gap:20px}
+.fgroup{display:flex;flex-direction:column;gap:2px}
+/* 그룹 제목은 항목보다 작고 옅게: 항목(진한 14px)이 먼저 읽히게 */
+.fgroup h2{font-size:var(--fs-s);font-weight:600;margin:0 0 6px;color:var(--muted)}
+.fgroup .rowx h2{margin:0}
+.fgroup .rowx{margin-bottom:6px}
+.fgroup + .fgroup{border-top:1px solid var(--line-soft);padding-top:16px}
 .mapwrap{grid-area:map;position:relative;overflow:hidden;background:var(--block)}
 svg.map{position:absolute;inset:0;width:100%;height:100%;display:block}
 svg.map .street{stroke:var(--road);stroke-linecap:round;fill:none}
@@ -140,13 +147,14 @@ svg.map .mk .num{font-size:10px;font-weight:700;fill:#fff;font-family:var(--f-bo
 /* 순위: 동그라미 숫자 */
 .qitem .rk{grid-row:1/3;align-self:center;min-width:2ch;text-align:right;color:var(--faint);font-weight:700;font-size:var(--fs-s)}
 .qitem .pl{font-weight:600;font-size:var(--fs-body)}
-.qitem .sub{grid-column:2;font-size:var(--fs-s);color:var(--muted)}
+.qitem .sub{grid-column:2;display:flex;flex-wrap:wrap;align-items:center;gap:2px 12px;font-size:var(--fs-s);font-weight:500;color:var(--muted)}
+.qitem .sub .hot{color:var(--blocked);font-weight:600}
 .back{align-self:flex-start}
 
 /* 상세 */
 .dh{display:flex;flex-direction:column;gap:4px}
 .dh h3{margin:0;font-size:var(--fs-xl);font-weight:700}
-.meta{font-size:var(--fs-s);color:var(--faint);display:flex;gap:2px 10px;flex-wrap:wrap}
+.meta{font-size:var(--fs-s);font-weight:500;color:var(--faint);display:flex;gap:2px 10px;flex-wrap:wrap}
 .frame{border-radius:var(--r-m);overflow:hidden;background:var(--sunk);border:1px solid var(--line-soft)}
 .frame svg{display:block;width:100%;height:auto}
 .rowx{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
@@ -204,7 +212,7 @@ aside.drawer{position:fixed;top:0;right:0;bottom:0;width:min(460px,100%);backgro
 
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:10px 18px;border-radius:var(--r-m);font-size:var(--fs-m);z-index:30}
 
-@media (max-width:1180px){#v-map{grid-template-columns:240px minmax(0,1fr);grid-template-rows:auto minmax(460px,62vh) auto;grid-template-areas:"filters kpi" "filters map" "side side";height:auto}#v-map.nofilter{grid-template-columns:minmax(0,1fr);grid-template-areas:"kpi" "map" "side"}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:1180px){#v-map{grid-template-columns:240px minmax(0,1fr);grid-template-rows:auto minmax(460px,62vh) auto;grid-template-areas:"filters kpi" "filters map" "side side";height:auto}#v-map.nofilter{grid-template-columns:minmax(0,1fr);grid-template-areas:"kpi" "map" "side"}}
 @media (max-width:760px){#v-map{grid-template-columns:1fr;grid-template-rows:auto auto 420px auto;grid-template-areas:"kpi" "filters" "map" "side"}#v-map.nofilter{grid-template-rows:auto 420px auto}.status-line{margin-left:0;width:100%;padding-bottom:8px}.top-nav .btn-tab{min-height:48px}}
 @media (prefers-reduced-motion:no-preference){.toast{animation:up .18s ease-out}@keyframes up{from{opacity:0;transform:translate(-50%,6px)}}}
 
@@ -244,7 +252,7 @@ svg.map .svg-pin:focus-visible path{stroke:var(--accent)}
 .qtools .krds-input{flex:1;min-width:0}
 .qtools .krds-form-select-sort{flex:none}
 /* 판단 유보: 위험 지도·관측 목록과 같은 정보 줄·제목 */
-.hcard .sub{font-size:var(--fs-s);color:var(--faint);margin-top:-6px}
+.hcard .sub{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:var(--fs-s);font-weight:500;color:var(--faint);margin-top:-6px}
 .hacts{display:flex;gap:6px;flex-wrap:wrap}
 .page .lead{margin:-4px 0 0}
 .page > .sec-title{margin-top:8px}
@@ -252,16 +260,15 @@ svg.map .svg-pin:focus-visible path{stroke:var(--accent)}
 .hhead h3{flex:1;min-width:0;line-height:1.35}
 
 /* 섹션 제목: '주제 | 보조 설명' */
-.sec-title{display:flex;align-items:center;gap:10px;margin:0;font-size:var(--fs-l);font-weight:700;line-height:1.3;color:var(--ink)}
-.sec-bar{flex:none;width:3px;height:1em;border-radius:2px;background:var(--accent)}
-.sec-sub{font-weight:500;color:var(--muted)}
+.sec-title{display:flex;align-items:baseline;gap:8px;margin:0;font-size:var(--fs-l);font-weight:700;line-height:1.3;color:var(--ink)}
+.sec-sub{font-weight:500;color:var(--faint)}
 /* 지표 카드: 큰 숫자 · 작은 이름 · 화살표 증감 · 오른쪽 곡선. 첫 카드(hero)는 포인트 색으로 채운다 */
 .kpis{grid-area:kpi;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
 .kpi{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) 44%;grid-template-areas:"v s" "h s" "d s";align-items:center;column-gap:12px;padding:16px 20px;text-align:left;font:inherit;color:inherit}
 .kpi-v{grid-area:v;margin:0;display:flex;align-items:baseline;gap:4px}
 .kpi-v b{font-size:var(--fs-2xl);font-weight:700;line-height:1.1;letter-spacing:-.02em}
 .kpi-v span{font-size:var(--fs-s);color:var(--muted)}
-.kpi h3{grid-area:h;margin:2px 0 0;font-size:var(--fs-xs);font-weight:600;color:var(--muted);letter-spacing:.02em}
+.kpi h3{grid-area:h;margin:2px 0 0;font-size:var(--fs-s);font-weight:600;line-height:1.35;color:var(--muted);word-break:keep-all;overflow-wrap:normal}
 .kpi-d{grid-area:d;margin:8px 0 0;font-size:var(--fs-s);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi-d span{font-weight:400;color:var(--faint);margin-left:2px}
 .kpi-d.bad{color:var(--blocked)}
@@ -273,7 +280,7 @@ svg.map .svg-pin:focus-visible path{stroke:var(--accent)}
 .spark-line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
 .spark-dot{fill:var(--accent);stroke:var(--surface);stroke-width:2}
 /* 대표 카드: 인디고 바탕 · 흰 글자 · 아래로 넓게 깔린 곡선 */
-.kpi.hero{background:linear-gradient(160deg,var(--krds-color-light-primary-40),var(--krds-color-light-primary-60));color:#fff;box-shadow:0 10px 28px color-mix(in srgb,var(--krds-color-light-primary-50) 35%,transparent);
+.kpi.hero{background:var(--krds-color-light-primary-50);color:#fff;box-shadow:none;
   grid-template-columns:1fr;grid-template-areas:"v" "h" "d" "s";padding-bottom:30px}
 .kpi.hero .kpi-v span,.kpi.hero h3,.kpi.hero .kpi-d,.kpi.hero .kpi-d span{color:rgba(255,255,255,.82)}
 .kpi.hero .kpi-spark{grid-area:auto;position:absolute;inset:auto 0 0 0;height:38%;opacity:.9;pointer-events:none}
@@ -282,10 +289,11 @@ svg.map .svg-pin:focus-visible path{stroke:var(--accent)}
 .kpi.hero .spark-line{stroke:#fff}
 .kpi.hero .spark-dot{display:none}
 .kpi.hero > :not(.kpi-spark){position:relative;z-index:1}
-.kpi-btn{cursor:pointer;width:100%;transition:box-shadow .15s,transform .15s}
-.kpi-btn:hover{box-shadow:var(--shadow-hi);transform:translateY(-1px)}
+.kpi-btn{cursor:pointer;width:100%}
+.kpi-btn:not(.hero):hover{background:var(--sunk)}
+.kpi-btn.hero:hover{background:var(--krds-color-light-primary-60)}
 .kpi-btn.on:not(.hero){box-shadow:inset 0 0 0 2px var(--accent),var(--shadow)}
-.kpi-btn.hero.on{box-shadow:inset 0 0 0 2px rgba(255,255,255,.7),0 10px 28px color-mix(in srgb,var(--krds-color-light-primary-50) 35%,transparent)}
+.kpi-btn.hero.on{box-shadow:inset 0 0 0 2px rgba(255,255,255,.7)}
 /* 행정구역 막대 */
 .area-bars{list-style:none;margin:2px 0 0;padding:0;display:flex;flex-direction:column;gap:4px}
 .area-bars button{display:grid;grid-template-columns:56px minmax(0,1fr) 22px;align-items:center;gap:8px;width:100%;padding:5px 6px;border:1px solid transparent;border-radius:var(--r-s);background:none;cursor:pointer;font:inherit;text-align:left}
@@ -366,7 +374,6 @@ main h1:focus{outline:none;box-shadow:none}
 .cctv-mk svg{display:block;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.35));transition:transform .12s}
 .cctv-mk svg rect{fill:#3A3C55;stroke:#fff;stroke-width:1.5}
 .cctv-mk:hover svg,.cctv-mk:focus-visible svg{transform:scale(1.15)}
-.fdot.cam{border-radius:3px;background:#3A3C55}
 .modal-box.modal-md{width:min(560px,100%)}
 .cctv-view{display:flex;flex-direction:column;gap:12px}
 .cctv-view .dh{padding-right:72px}
@@ -374,8 +381,16 @@ main h1:focus{outline:none;box-shadow:none}
 .cctv-stage{position:relative;width:100%;aspect-ratio:16/9;max-height:calc(100dvh - 260px);background:#111;border-radius:var(--r-m);overflow:hidden}
 .cctv-video{display:block;width:100%;height:100%;object-fit:contain;background:#111}
 .cctv-err{position:absolute;inset:auto 0 0 0;margin:0;padding:10px 14px;background:rgba(0,0,0,.7);color:#fff;font-size:var(--fs-m)}
-.cctv-url{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
-.cctv-url code{flex:1 1 100%;order:3;padding:8px 10px;border-radius:var(--r-m);background:var(--block);font-size:var(--fs-s);word-break:break-all;user-select:all}
+/* CCTV 영상 주소 목록 (분석용) */
+.url-list{display:flex;flex-direction:column;gap:14px}
+.url-list .dh{padding-right:72px}
+.url-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.url-tools .krds-input{flex:1 1 240px;width:auto}
+.url-table{overflow:auto;max-height:calc(100dvh - 320px);border-radius:var(--r-m);box-shadow:inset 0 0 0 1px var(--line-soft)}
+.url-table th,.url-table td{font-size:var(--fs-s);vertical-align:top}
+.url-table td .small{display:block}
+.url-table code{display:block;max-width:520px;word-break:break-all;user-select:all;font-size:var(--fs-xs);color:var(--muted)}
+.cctv-err-inline{margin:0;color:var(--blocked);font-size:var(--fs-m)}
 .cctv-stage.utic{aspect-ratio:auto;max-height:none;display:flex;justify-content:center}
 .utic-crop{position:relative;overflow:hidden;flex:none}
 .utic-crop iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;background:#111}
@@ -401,3 +416,66 @@ main h1:focus{outline:none;box-shadow:none}
 .site-done{color:var(--pass)}
 .site-again{color:var(--blocked)}
 .site-wait{color:var(--hold)}
+
+/* 반응형: 지표 카드·필터 접기 규칙보다 뒤에 있어야 덮어쓴다 */
+@media (max-width:1180px){
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #v-map.nofilter{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(460px,62vh) auto;grid-template-areas:"kpi" "map" "side"}
+}
+.filter-scrim{display:none}
+/* 관측 목록 툴바: 데스크톱은 한 줄에 모두, 휴대폰은 검색 + '조건' 버튼만 (조건은 펼쳐서) */
+.tb-q{width:240px}
+.tb-toggle{display:none}
+.tb-more{display:contents}
+#v-list .list-table td.c-risk.hi{color:var(--blocked)}
+@media (max-width:760px){
+  .toolbar{gap:8px}
+  .tb-q{flex:1;min-width:0;width:auto}
+  .tb-toggle{display:inline-flex;flex:none}
+  .toolbar{flex-wrap:wrap}
+  .toolbar .tb-sort{flex:none;width:auto}
+  .tb-more{display:none}
+  .tb-more.open{display:flex;flex-wrap:wrap;gap:8px;width:100%}
+  .tb-more .krds-form-select{flex:1 1 140px;min-width:0}
+  .toolbar .grow,.tb-copy,.bulk{display:none}
+  /* 표 → 카드: 위치·위험도 / 판정·시각·동 / 지속성 / 처리 상태 */
+  #v-list .list-table{padding:0;background:none;box-shadow:none;overflow:visible}
+  #v-list .list-table table,#v-list .list-table tbody{display:block;width:100%}
+  #v-list .list-table thead{display:none}
+  #v-list .list-table tbody tr{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;grid-template-areas:"place place place risk" "pass time area area" "persist persist persist persist" "act act act act";
+    align-items:center;gap:6px 12px;margin-bottom:10px;padding:14px 16px;background:var(--surface);border-radius:var(--r-l);box-shadow:var(--shadow)}
+  #v-list .list-table tbody td{display:block;padding:0;border:0;background:none;white-space:normal;font-size:var(--fs-s)}
+  #v-list .list-table tbody tr:hover td{background:none}
+  #v-list .list-table .cb,#v-list .list-table .c-src,#v-list .list-table .c-route,#v-list .list-table .c-dept,#v-list .list-table .c-last,#v-list .list-table .c-persist.empty{display:none}
+  #v-list .list-table .c-place{grid-area:place;font-size:var(--fs-l);font-weight:600}
+  #v-list .list-table .c-risk{grid-area:risk;font-size:var(--fs-xl);text-align:right}
+  #v-list .list-table .c-pass{grid-area:pass}
+  #v-list .list-table .c-time{grid-area:time;color:var(--muted)}
+  #v-list .list-table .c-area{grid-area:area;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #v-list .list-table .c-persist{grid-area:persist}
+  #v-list .list-table .c-act{grid-area:act;margin-top:4px}
+  #v-list .list-table .c-act .krds-form-select{width:100%}
+  #v-list .list-table .empty-row{display:block}
+}
+/* 휴대폰: 필터는 흐름에서 빼서 지도 위에 아래쪽 시트로 연다 (열려도 지도·목록을 밀어내지 않는다) */
+@media (max-width:760px){
+  #v-map,#v-map.nofilter{grid-template-columns:1fr;grid-template-rows:auto 420px auto;grid-template-areas:"kpi" "map" "side"}
+  .filter-scrim{display:block;position:fixed;inset:0;z-index:2090;border:0;padding:0;background:var(--scrim);cursor:pointer}
+  #v-map .filters{position:fixed;left:0;right:0;bottom:0;z-index:2100;max-height:72dvh;border-radius:var(--r-l) var(--r-l) 0 0;box-shadow:0 -8px 32px rgba(20,22,60,.18);padding:12px 20px calc(24px + env(safe-area-inset-bottom,0px))}
+  #v-map .filters::before{content:"";align-self:center;flex:none;width:40px;height:4px;border-radius:2px;background:var(--line)}
+  .maptools{right:56px}
+  :root{--hdr:48px}
+  .top-in{gap:0 20px}
+  .brand{min-height:48px}
+}
+/* 휴대폰: 대표 카드는 한 줄 전체, 나머지 3장은 3열. 작은 카드는 숫자·이름·증감만 */
+@media (max-width:760px){
+  #v-map,.page{padding:12px;gap:12px}
+  .kpis{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .kpi.hero{grid-column:1/-1}
+  .kpi:not(.hero){grid-template-columns:1fr;grid-template-areas:"v" "h" "d";align-content:start;padding:12px 14px}
+  .kpi:not(.hero) .kpi-spark{display:none}
+  .kpi:not(.hero) .kpi-v b{font-size:var(--fs-xl)}
+  .kpi:not(.hero) .kpi-d span{display:none}
+  .kpi-d{margin-top:6px}
+}

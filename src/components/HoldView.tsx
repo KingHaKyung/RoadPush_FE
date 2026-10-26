@@ -66,7 +66,7 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
       {/* 검수 대기 카드는 모두 판단 유보라 배지를 빼고, 검수 완료는 사람 판정을 배지로 */}
       <div className="hhead"><h3>{o.place}</h3>{o.human && <Pill pass={o.human} />}</div>
       {/* 위험 지도 '우선 점검 지점'과 같은 정보 줄 */}
-      <span className="sub">{o.area && <>{o.area} · </>}{SRC_LABEL[o.src]} {o.dev} · {fmtTime(o.t)}</span>
+      <span className="sub">{o.area && <span>{o.area}</span>}<span>{SRC_LABEL[o.src]} {o.dev}</span><span>{fmtTime(o.t)}</span></span>
       <button type="button" className="frame hframe-btn" aria-label={`${o.place} 크게 보기`} onClick={() => setOpenId(o.id)}>
         <FrameView o={o} overlay={false} /><span className="hzoom">크게 보기</span>
       </button>
@@ -90,12 +90,12 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
         {reasons.length ? <CountBars rows={reasons} active={cond} onPick={setCond} /> : <p className="small">검수 대기 중인 건이 없습니다.</p>}
       </div>
       <div className="toolbar">
-        <label className="vh" htmlFor="hq">검색</label>
-        <input className="krds-input small" id="hq" type="search" placeholder="위치·행정구역·장비·관측 ID" value={f.q} style={{ width: 240 }} onChange={(e) => setFilters({ ...f, q: e.target.value })} />
         <label className="vh" htmlFor="hs">정렬</label>
-        <select className="krds-form-select-sort small" id="hs" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+        <select className="krds-form-select-sort small tb-sort" id="hs" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
           {(Object.keys(SORT_LABEL) as SortKey[]).map((k) => <option key={k} value={k}>{SORT_LABEL[k]}</option>)}
         </select>
+        <label className="vh" htmlFor="hq">검색</label>
+        <input className="krds-input small tb-q" id="hq" type="search" placeholder="위치·행정구역·장비·관측 ID" value={f.q} onChange={(e) => setFilters({ ...f, q: e.target.value })} />
         <span className="grow" />
       </div>
       <SectionTitle title="검수 대기" sub={`${open.length}건`} />

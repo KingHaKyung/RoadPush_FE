@@ -29,6 +29,29 @@ export async function itsList(key: string): Promise<string> {
   return JSON.stringify({ source: 'ITS 국가교통정보센터', cctvs: [...ex, ...its] });
 }
 
+/**
+ * 전국 CCTV 위치 + 지금의 HLS 주소 (개발·분석용 목록). 전국 조회 2번(고속도로·국도)으로 모두 받는다.
+ * 영상 주소는 ITS가 붙인 토큰이 있어 시간이 지나면 만료된다. 우리 키가 섞인 주소는 내보내지 않는다.
+ */
+export async function itsUrls(key: string): Promise<{ fetchedAt: string; cctvs: { name: string; center: string; road: string; lat: number; lng: number; hls: string }[] }> {
+  const [ex, its] = await Promise.all((['ex', 'its'] as const).map(async (type) => (await query(key, type, KOREA))
+    .filter((d) => d.cctvurl && !String(d.cctvurl).includes(key))
+    .map((d) => ({
+      name: String(d.cctvname).replace(/^\[[^\]]+\]\s*/, ''),
+      center: String(d.cctvname).match(/^\[([^\]]+)\]/)?.[1] ?? '',
+      road: type === 'ex' ? '고속도로' : '국도',
+      lat: +d.coordy, lng: +d.coordx, hls: String(d.cctvurl),
+    }))));
+  if (!ex.length && !its.length) throw new Error('ITS에서 CCTV 목록을 받지 못했습니다');
+  return { fetchedAt: new Date().toISOString(), cctvs: [...ex, ...its] };
+}
+
+const csvCell = (v: string | number) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
+/** itsUrls 결과를 CSV로 (엑셀에서 한글이 깨지지 않게 BOM) */
+export const urlsCsv = (r: Awaited<ReturnType<typeof itsUrls>>) =>
+  '﻿' + [['이름', '관리기관', '도로', '위도', '경도', 'HLS 주소'], ...r.cctvs.map((c) => [c.name, c.center, c.road, c.lat, c.lng, c.hls])]
+    .map((row) => row.map(csvCell).join(',')).join('\n');
+
 /** 카메라 하나의 지금 HLS 주소: 그 주변만 다시 조회해 이름이 같은(없으면 가장 가까운) 카메라를 고른다 */
 export async function itsStream(key: string, p: URLSearchParams): Promise<string> {
   const type = p.get('type'), name = p.get('name') ?? '', lat = Number(p.get('lat')), lng = Number(p.get('lng'));

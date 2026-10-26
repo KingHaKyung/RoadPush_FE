@@ -35,7 +35,7 @@ export function Header({ tab, holdCount, obs, error }: { tab: Tab; holdCount: nu
           </nav>
           <div className="status-line">
             {latest && <span className="live">최종 촬영 {fmtTime(latest)}</span>}
-            <span>{bySrc.map(([s, n]) => `${SRC_LABEL[s]} ${n}건`).join(' · ') || '관측 없음'}</span>
+            {bySrc.length ? bySrc.map(([s, n]) => <span key={s}>{SRC_LABEL[s]} <b>{n}</b>건</span>) : <span>관측 없음</span>}
             {error && <span className="krds-badge small bg-danger" title={error}>백엔드 연결 실패</span>}
           </div>
         </div>
