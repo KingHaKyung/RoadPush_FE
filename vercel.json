@@ -1,6 +1,8 @@
 {
   "regions": ["icn1"],
   "rewrites": [
-    { "source": "/vworld/wmts/:path*", "destination": "/api/vworld?path=:path*" }
+    { "source": "/vworld/wmts/:path*", "destination": "/api/vworld?path=:path*" },
+    { "source": "/dashboard", "destination": "/index.html" },
+    { "source": "/report", "destination": "/index.html" }
   ]
 }

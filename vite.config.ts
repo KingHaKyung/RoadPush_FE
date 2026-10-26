@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv, type Plugin, type ProxyOptions } from 'vite';
 import react from '@vitejs/plugin-react';
+import basicSsl from '@vitejs/plugin-basic-ssl';
 import { roadTile } from './api/_roads';
 
 /**
@@ -60,7 +61,11 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   const vworldKey = (env.VWORLD_KEY ?? '').trim();
   return {
-    plugins: [krdsImgPath, vworldRoads(vworldKey, (env.VWORLD_REFERER ?? 'https://road-push-fe.vercel.app/').replace(/\/$/, '')), react()],
+    plugins: [
+      krdsImgPath, vworldRoads(vworldKey, (env.VWORLD_REFERER ?? 'https://road-push-fe.vercel.app/').replace(/\/$/, '')), react(),
+      // npm run dev:https → 자체 서명 인증서로 https 개발 서버. 휴대폰에서 '현재 위치'를 쓰려면 https여야 한다
+      ...(mode === 'https' ? [basicSsl()] : []),
+    ],
     // 키 값이 아니라 '프록시가 켜져 있는지'만 브라우저에 알린다
     // Vercel에서는 api/vworld.ts가 실행할 때 키를 읽으므로, 빌드 때 키가 없어도 프록시를 켠다
     define: { 'import.meta.env.VITE_VWORLD_PROXY': JSON.stringify(vworldKey || env.VERCEL ? '/vworld/wmts' : '') },
