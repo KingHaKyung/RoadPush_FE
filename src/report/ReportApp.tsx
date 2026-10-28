@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { API_BASE } from '../api/client';
-import { inspectPhoto, siteCandidates, submitReport, type SiteCandidates, type Source } from './api';
+import { addReportNote, inspectPhoto, siteCandidates, submitReport, type SiteCandidates, type Source } from './api';
 import { LocationMap } from './LocationMap';
 import '../styles/report.css';
 
@@ -17,6 +17,7 @@ const kstText = (iso: string) => {
   return `${d.getUTCFullYear()}년 ${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일 ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
 };
 const sizeText = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)}MB` : `${Math.max(1, Math.round(b / 1024))}KB`);
+const NOTE_MAX = 300;
 const LOC_TEXT: Record<Source, string> = { exif: '사진에 담긴 위치', device: '현재 내 위치', manual: '지도에서 고른 위치' };
 const TIME_TEXT: Record<Source, string> = { exif: '사진에 담긴 시각', device: '사진 파일 시각', manual: '직접 고른 시각' };
 
@@ -37,7 +38,8 @@ export function ReportApp() {
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
-  const [done, setDone] = useState<{ id: string; at: string } | null>(null);
+  const [note, setNote] = useState('');
+  const [done, setDone] = useState<{ id: string; at: string; noteLost?: boolean } | null>(null);
 
   useEffect(() => { document.title = '보행 통로 제보 · RoadPush'; }, []);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
@@ -70,6 +72,7 @@ export function ReportApp() {
   const removePhoto = () => {
     setFile(null); setPreview(''); setTaken(null);
     if (loc?.source === 'exif') { setLoc(null); setCands(null); }
+    // 같은 사진을 다시 골라도 change가 일어나게 비운다
     if (fileRef.current) fileRef.current.value = '';
   };
 
@@ -102,13 +105,16 @@ export function ReportApp() {
         lat: loc.lat, lng: loc.lng, locationSource: loc.source,
         ...(near ? { siteId: near.site.id } : { newSiteName: road ? `${road} 시민 제보` : '시민 제보 지점' }),
       });
-      setDone({ id: r.observation_id, at: kstIso(new Date()) });
+      // 설명은 관측 메모로 따로 붙인다. 실패해도 제보 자체는 접수된 상태라 완료 화면에서 알린다
+      const text = note.trim();
+      const noteLost = text ? await addReportNote(r.observation_id, text).then(() => false, () => true) : false;
+      setDone({ id: r.observation_id, at: kstIso(new Date()), noteLost });
     } catch (e) {
       setError((e as Error).message);
     } finally { setSending(false); }
   };
 
-  const restart = () => { removePhoto(); setLoc(null); setCands(null); setDone(null); setError(''); };
+  const restart = () => { removePhoto(); setLoc(null); setCands(null); setNote(''); setDone(null); setError(''); };
   const missing = !file ? '사진을 골라 주세요.' : !loc ? '지도에서 막힌 곳을 골라 주세요.' : '';
 
   const header = <header className="rp-top"><b>RoadPush</b><span>보행 통로 제보</span></header>;
@@ -123,6 +129,7 @@ export function ReportApp() {
           <div><dt>접수 번호</dt><dd className="rp-mono">{done.id}</dd></div>
           <div><dt>접수 시각</dt><dd>{kstText(done.at)}</dd></div>
         </dl>
+        {done.noteLost && <p className="form-hint-invalid">사진과 위치는 접수했지만 남기신 설명은 전달하지 못했습니다.</p>}
         <div className="btn-wrap rp-actions">
           <button type="button" className="krds-btn large primary" onClick={restart}>다른 곳 제보하기</button>
         </div>
@@ -144,12 +151,13 @@ export function ReportApp() {
             <p>사람 얼굴이나 차량 번호판이 크게 나오지 않게 찍어 주세요.</p>
           </div>
         </div>
-        <input ref={fileRef} id={`${uid}-file`} type="file" accept="image/*" capture="environment" hidden onChange={(e) => choose(e.target.files?.[0])} />
+        {/* capture를 넣지 않는다: 넣으면 휴대폰이 바로 카메라를 열어 앨범을 고를 수 없다. 없으면 촬영·앨범 중에서 고르게 한다 */}
+        <input ref={fileRef} id={`${uid}-file`} type="file" accept="image/*" hidden onChange={(e) => choose(e.target.files?.[0])} />
         {!file ? (
           <div className="file-upload">
             <div className="file-upload-btn-wrap">
               {/* KRDS 예시는 label 안에 button을 두지만, 그러면 파일 선택이 열리지 않는 브라우저가 있어 label에 버튼 모양을 입힌다 */}
-              <label htmlFor={`${uid}-file`} className="krds-btn medium"><i className="svg-icon ico-upload" aria-hidden="true" />사진 선택</label>
+              <label htmlFor={`${uid}-file`} className="krds-btn medium"><i className="svg-icon ico-upload" aria-hidden="true" />사진 올리기</label>
             </div>
           </div>
         ) : (
@@ -176,7 +184,7 @@ export function ReportApp() {
         <div className="form-group">
           <div className="form-tit"><h2 className="rp-h2">막힌 곳 위치</h2></div>
           <div className="form-conts">
-            <LocationMap loc={loc} onPick={(lat, lng) => setLoc({ lat, lng, source: 'manual' })} />
+            <LocationMap loc={loc} onPick={(lat, lng) => { setLoc({ lat, lng, source: 'manual' }); setError(''); }} />
             <button type="button" className="krds-btn medium secondary rp-locbtn" onClick={useMyLocation} disabled={locating}>
               {locating ? '현재 위치를 찾는 중' : '현재 위치 사용'}
             </button>
@@ -186,18 +194,32 @@ export function ReportApp() {
             : '지도를 눌러 막힌 곳을 고르거나 현재 위치를 사용하세요.'}</p>
           {loc && near && <p className="form-hint-information">근처에 이미 제보된 지점이 있어 같은 곳으로 접수합니다.</p>}
         </div>
+
+        {/* 선택 입력: 사진만으로 알기 어려운 상황 (KRDS 텍스트 영역) */}
+        <div className="form-group">
+          <div className="form-tit"><label htmlFor={`${uid}-note`}>상황 설명 <span className="rp-opt">(선택)</span></label></div>
+          <div className="form-conts">
+            <div className="textarea-wrap">
+              <textarea className="krds-input" id={`${uid}-note`} rows={3} maxLength={NOTE_MAX} value={note}
+                placeholder="예: 공사 펜스가 보도 전체를 막아 차도로 걸어야 합니다" aria-describedby={`${uid}-note-count`}
+                onChange={(e) => setNote(e.target.value)} />
+            </div>
+            <div className="textarea-bottom">
+              <p className="textarea-count" id={`${uid}-note-count`}><span className="count-now">{note.length}</span>/{NOTE_MAX}자</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {error && <p className="form-hint-invalid rp-error" role="alert">{error}</p>}
 
       <div className="btn-wrap rp-actions">
-        <button type="button" className="krds-btn large primary" disabled={!!missing || reading || sending || !API_BASE} aria-describedby={missing ? `${uid}-missing` : undefined} onClick={send}>
+        {/* 빠진 것은 미리 띄우지 않고, 눌렀을 때 알린다 */}
+        <button type="button" className="krds-btn large primary" disabled={reading || sending || !API_BASE} onClick={() => (missing ? setError(missing) : send())}>
           {sending ? '보내는 중' : '제보하기'}
         </button>
       </div>
-      {!API_BASE
-        ? <p className="form-hint rp-missing">제보 서버에 연결되지 않아 지금은 접수할 수 없습니다.</p>
-        : missing && <p className="form-hint rp-missing" id={`${uid}-missing`}>{missing}</p>}
+      {!API_BASE && <p className="form-hint rp-missing">제보 서버에 연결되지 않아 지금은 접수할 수 없습니다.</p>}
     </main>
   );
 }

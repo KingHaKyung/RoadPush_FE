@@ -20,7 +20,9 @@ export function LocationMap({ loc, onPick }: { loc: { lat: number; lng: number }
 
   useEffect(() => {
     const m = L.map(el.current!, { center: FALLBACK, zoom: 16, zoomControl: false, attributionControl: !!TILES });
-    if (TILES) L.tileLayer(`${TILES}/Base/{z}/{y}/{x}.png`, { maxZoom: 19, attribution: '배경지도 © 브이월드' }).addTo(m);
+    // 지도 위 출처는 배경지도(브이월드)만 (Leaflet 링크는 뺀다)
+    m.attributionControl?.setPrefix(false);
+    if (TILES) L.tileLayer(`${TILES}/Base/{z}/{y}/{x}.png`, { maxZoom: 19, attribution: '배경지도 © 브이월드(국토교통부)' }).addTo(m);
     L.control.zoom({ position: 'bottomright' }).addTo(m);
     m.on('click', (e: L.LeafletMouseEvent) => pick.current(e.latlng.lat, e.latlng.lng));
     map.current = m;

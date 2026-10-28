@@ -52,3 +52,10 @@ export function submitReport(r: ReportIn) {
   fd.append('device', '시민 제보');
   return send<{ observation_id: string }>('/observations', { method: 'POST', body: fd });
 }
+
+/** 제보자가 남긴 설명: 관측 메모로 붙인다 (관제 화면 처리 이력에 보인다) */
+export function addReportNote(id: string, content: string) {
+  return send<unknown>(`/observations/${id}/notes`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, author: '시민 제보' }),
+  });
+}

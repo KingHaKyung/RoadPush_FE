@@ -66,14 +66,17 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
   const card = (o: Observation) => (
     // 카드를 누르면 큰 창 (버튼을 누른 경우는 제외)
     <article key={o.id} className={`hcard${o.human ? ' done' : ''}`} onClick={(e) => !(e.target as HTMLElement).closest('button') && setOpenId(o.id)}>
-      {/* 검수 대기 카드는 모두 판단 유보라 배지를 빼고, 검수 완료는 사람 판정을 배지로 */}
-      <div className="hhead"><h3>{o.place}</h3>{o.human && <Pill pass={o.human} />}</div>
-      {/* 위험 지도 '우선 점검 지점'과 같은 정보 줄 */}
-      <span className="sub">{o.area && <span>{o.area}</span>}<span>{SRC_LABEL[o.src]} {o.dev}</span><span>{fmtTime(o.t)}</span></span>
+      {/* 왼쪽 사진(모든 카드 같은 크기), 오른쪽 글. 판정 버튼은 아래 한 줄 */}
       <button type="button" className="frame hframe-btn" aria-label={`${o.place} 크게 보기`} onClick={() => setOpenId(o.id)}>
-        <FrameView o={o} overlay={false} /><span className="hzoom">크게 보기</span>
+        <FrameView o={o} overlay={false} thumb /><span className="hzoom">크게 보기</span>
       </button>
-      <div className="reason">{o.reason}</div>
+      <div className="hbody">
+        {/* 검수 대기 카드는 모두 판단 유보라 배지를 빼고, 검수 완료는 사람 판정을 배지로 */}
+        <div className="hhead"><h3>{o.place}</h3>{o.human && <Pill pass={o.human} />}</div>
+        {/* 위험 지도 '우선 점검 지점'과 같은 정보 줄 */}
+        <span className="sub">{o.area && <span>{o.area}</span>}<span>{SRC_LABEL[o.src]} {o.dev}</span><span>{fmtTime(o.t)}</span></span>
+        <div className="reason">{o.reason}</div>
+      </div>
       {actions(o)}
     </article>
   );

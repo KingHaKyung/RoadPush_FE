@@ -2,12 +2,15 @@ import type { Observation } from '../types';
 import { SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
 
-/** 촬영 화면 자리 표시용 그림. 백엔드가 붙으면 원본 사진·overlay 이미지로 바꾼다. */
-export function FrameView({ o, overlay }: { o: Observation; overlay: boolean }) {
+/**
+ * 촬영 화면 자리 표시용 그림. 백엔드가 붙으면 원본 사진·overlay 이미지로 바꾼다.
+ * thumb: 카드 썸네일. 사진 비율과 상관없이 칸을 꽉 채운다 (잘리는 부분은 큰 창에서 본다)
+ */
+export function FrameView({ o, overlay, thumb }: { o: Observation; overlay: boolean; thumb?: boolean }) {
   // 백엔드에 연결되면 실제 사진을 보여 준다 ('분석'이면 overlay, 없으면 원본)
   if (o.img) {
     const src = overlay && o.img.overlay ? o.img.overlay : o.img.original;
-    return <img src={src} alt={`${o.place} ${overlay ? '분석 결과' : '원본'} 사진`} style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }} />;
+    return <img src={src} alt={`${o.place} ${overlay ? '분석 결과' : '원본'} 사진`} style={{ width: '100%', height: '100%', objectFit: thumb ? 'cover' : 'contain', background: '#000' }} />;
   }
   const W = 320, H = 190, top = 88, bot = H;
   const L = (y: number) => 205 + ((150 - 205) * (y - top)) / (bot - top);
@@ -18,7 +21,7 @@ export function FrameView({ o, overlay }: { o: Observation; overlay: boolean }) 
   const kinds = o.causes.length ? o.causes : o.cond === 'occluded' ? ['차량'] : [];
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${o.place} 촬영 화면 예시`}>
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio={thumb ? 'xMidYMid slice' : undefined} role="img" aria-label={`${o.place} 촬영 화면 예시`}>
       <rect width={W} height={H} style={{ fill: 'var(--frame-sky)' }} />
       <rect x="250" y="20" width="70" height={top - 16} style={{ fill: 'var(--frame-bld)' }} />
       <rect x="0" y="40" width="80" height={top - 40} style={{ fill: 'var(--frame-bld)' }} />

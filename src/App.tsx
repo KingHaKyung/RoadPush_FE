@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { Modal } from './components/Modal';
 import { ObservationDetail } from './components/ObservationDetail';
+import { Footer } from './components/Footer';
 import { Header } from './components/Header';
 import { HoldView } from './components/HoldView';
 import { ListView } from './components/ListView';
@@ -68,6 +69,7 @@ export default function App() {
         {tab === 'list' && <ListView obs={observations} filters={filters} setFilters={setFilters} onOpen={setDrawerId} onUpdate={onUpdate} toast={toast} />}
         {tab === 'hold' && <HoldView obs={observations} filters={filters} setFilters={setFilters} onUpdate={onUpdate} toast={toast} />}
       </main>
+      <Footer />
       {/* 관측 목록에서 항목을 누르면 화면 가운데 큰 창으로 */}
       <Modal open={!!drawerObs} label={drawerObs ? `${drawerObs.place} 관측 상세` : '관측 상세'} onClose={closeDrawer}>
         {drawerObs && <ObservationDetail key={drawerObs.id} o={drawerObs} layout="wide" onUpdate={(p, l) => onUpdate(drawerObs.id, p, l)} />}

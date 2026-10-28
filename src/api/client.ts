@@ -38,7 +38,8 @@ export interface AnalysisResponse {
   history: { t: string; txt: string; ai: boolean; by: string | null }[];
 }
 
-export const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) || undefined;
+// 끝에 '/'를 붙여 적어도 '/api/v1//observations'가 되지 않게 뗀다
+export const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim().replace(/\/+$/, '') || undefined;
 
 /** 응답 코드를 함께 담은 오류 (409 같은 '지금은 할 수 없음'을 연결 실패와 구분한다) */
 export class ApiError extends Error {
