@@ -113,7 +113,6 @@ export function SvgRiskMap({ pins, selectedPin, onPickPin, selected, onSelect, f
         {[...pins].sort((x, y) => Number(x.key === selectedPin) - Number(y.key === selectedPin) || RISK_ORDER[x.pass] - RISK_ORDER[y.pass] || y.lat - x.lat)
           .map((p) => <PinMark key={p.key} p={p} k={Math.max(k, 0.45)} on={p.key === selectedPin} onPick={() => { if (!moved.current) onPickPin(p); }} />)}
       </svg>
-      <div className="svg-attr">도로 © 국토교통부 표준노드링크(2026-10-14)</div>
       <div className="zoom">
         <button type="button" aria-label="확대" onClick={() => zoom(1 / 1.4)}>+</button>
         <button type="button" aria-label="축소" onClick={() => zoom(1.4)}>−</button>

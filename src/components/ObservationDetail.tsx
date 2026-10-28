@@ -72,10 +72,11 @@ export function ObservationDetail({ o, onUpdate, layout = 'panel', extra, relate
             <ChipGroup label="촬영 화면 보기" options={[['raw', '원본'], ['ai', '분석']]} value={overlay ? 'ai' : 'raw'} onChange={(v) => setOverlay(v === 'ai')} />
           </div>
         </div>
-        {o.reason && <p className="reason">{o.reason}</p>}
       </div>
 
       <div className="od-side">
+        {/* 판단 유보 사유: 큰 창에서는 사진 옆 오른쪽 맨 위, 패널에서는 사진 바로 아래 */}
+        {o.reason && <p className="reason">{o.reason}</p>}
         {extra}
         {/* 핵심 숫자 세 칸 */}
         <dl className="od-stats">

@@ -40,7 +40,6 @@ const LABEL_ZOOM = 16;
 const MAX_LABELS = 60;
 /** 메모리에 남겨 둘 타일 수 */
 const KEEP_TILES = 40;
-const CL_ATTR = '도로폭 © 국토지리정보원 연속수치지형도';
 const STATIC_IDS = new Set(SEGMENTS.map((s) => s.id));
 
 /** CSS 토큰에서 도로 색을 읽는다 */
@@ -88,7 +87,8 @@ export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin
       zoom: ALL_ZOOM, minZoom: 7, maxZoom: 19, zoomControl: false, preferCanvas: true,
     });
     L.control.zoom({ position: 'topright' }).addTo(m);
-    m.attributionControl.setPrefix(false).addAttribution('도로 © 국토교통부 표준노드링크(2026-10-14)');
+    // 지도 위 출처는 배경지도(브이월드)만. 도로·도로폭 자료 출처는 화면 아래 푸터에 둔다
+    m.attributionControl.setPrefix(false);
     let failed = 0, loaded = 0;
     // 키는 개발 서버(프록시)가 붙인다. 브라우저에는 키가 없다
     tilesRef.current = L.tileLayer(`${tileBase}/white/{z}/{y}/{x}.png`, {
@@ -209,7 +209,6 @@ export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin
     loadCenterline().then((segs) => {
       if (seq < 0 || !segs.length) return;
       cl = segs.map(road);
-      m.attributionControl.addAttribution(CL_ATTR);
       setWidths(true);
       refresh();
     });
@@ -219,7 +218,6 @@ export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin
       seq = -1;
       m.off('moveend', refresh);
       edges.remove(); fills.remove(); labels.remove();
-      m.attributionControl.removeAttribution(CL_ATTR);
     };
   }, [ready]);
 

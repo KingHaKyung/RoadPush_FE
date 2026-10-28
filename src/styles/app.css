@@ -217,8 +217,14 @@ aside.drawer{position:fixed;top:0;right:0;bottom:0;width:min(460px,100%);backgro
 .close{align-self:flex-end}
 
 /* ===== 유보 ===== */
-.holdgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
-.hcard{background:var(--surface);border:1px solid transparent;box-shadow:var(--shadow);border-radius:var(--r-l);padding:14px;display:flex;flex-direction:column;gap:10px}
+.holdgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,440px),1fr));gap:12px}
+/* 왼쪽 사진(고정 폭·고정 비율), 오른쪽 글. 판정 버튼은 아래 한 줄 전체 */
+.hcard{background:var(--surface);border:1px solid transparent;box-shadow:var(--shadow);border-radius:var(--r-l);padding:14px;display:grid;grid-template-columns:168px minmax(0,1fr);align-items:start;gap:12px 14px}
+.hcard > .hacts,.hcard > .rowx{grid-column:1/-1}
+.hbody{display:flex;flex-direction:column;gap:8px;min-width:0}
+.hcard .hframe-btn{aspect-ratio:4/3}
+.hcard .hframe-btn svg{height:100%}
+@media (max-width:520px){.hcard{grid-template-columns:112px minmax(0,1fr)}}
 .hcard h3{margin:0;font-size:var(--fs-l)}
 .hcard.done{background:var(--sunk)}
 
@@ -268,7 +274,7 @@ svg.map .svg-pin:focus-visible path{stroke:var(--accent)}
 .qtools .krds-input{flex:1;min-width:0}
 .qtools .krds-form-select-sort{flex:none}
 /* 판단 유보: 위험 지도·관측 목록과 같은 정보 줄·제목 */
-.hcard .sub{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:var(--fs-s);font-weight:500;color:var(--faint);margin-top:-6px}
+.hcard .sub{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:var(--fs-s);font-weight:500;color:var(--faint);margin-top:-4px}
 .hacts{display:flex;gap:6px;flex-wrap:wrap}
 .page .lead{margin:-4px 0 0}
 .page > .sec-title{margin-top:8px}
@@ -418,7 +424,6 @@ svg.map .svg-pin:focus-visible path{stroke:var(--accent)}
 /* 화면 전환 때 포커스를 받는 제목에는 테두리를 그리지 않는다 */
 main h1:focus{outline:none;box-shadow:none}
 .vworld-map .leaflet-control-attribution{max-width:calc(100vw - 24px);white-space:normal}
-.svg-attr{position:absolute;z-index:1000;right:0;bottom:0;background:rgba(255,255,255,.8);padding:0 5px;font-size:var(--fs-xs);color:var(--muted)}
 /* 핀 말풍선 (마우스 올림·키보드 선택·목록에서 가리킬 때) */
 .leaflet-tooltip.pin-tip{background:#25263A;color:#fff;border:0;border-radius:var(--r-m);padding:6px 10px;box-shadow:0 2px 8px rgba(0,0,0,.25);font-family:var(--f-body);display:flex;flex-direction:column;gap:1px;white-space:nowrap}
 .leaflet-tooltip.pin-tip b{font-size:var(--fs-m);font-weight:700}
@@ -583,7 +588,7 @@ main h1:focus{outline:none;box-shadow:none}
 .frame-toggle .chip-group .krds-form-chip input:checked + .krds-form-chip-outline{background:#fff;color:var(--ink)}
 .frame-toggle .krds-form-chip input[type="radio"] ~ label.krds-form-chip-outline::before,
 .frame-toggle .krds-form-chip input[type="radio"]:checked ~ label.krds-form-chip-outline::before{display:none!important}
-.od-view .reason{margin:0}
+.od-side .reason{margin:0}
 /* 핵심 숫자 세 칸 */
 .od-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
 .od-stats > div{padding:10px 12px;border-radius:var(--r-m);background:var(--sunk);min-width:0}
@@ -617,3 +622,16 @@ main h1:focus{outline:none;box-shadow:none}
   .od-stats dd{font-size:var(--fs-l)}
   .od-stats dd small{font-size:var(--fs-xs)}
 }
+
+/* ===== 푸터: 서비스 이름·바로가기 / 판정 안내 / 자료 출처·저작권 (본문과 같은 좌우 여백) ===== */
+.site-foot{display:flex;flex-direction:column;gap:8px;padding:18px max(clamp(24px,6vw,120px),env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(clamp(24px,6vw,120px),env(safe-area-inset-left,0px));border-top:1px solid var(--line);background:var(--surface);font-size:var(--fs-s);color:var(--muted)}
+.site-foot p{margin:0}
+.sf-top{display:flex;align-items:center;justify-content:space-between;gap:8px 24px;flex-wrap:wrap}
+.sf-brand{font-size:var(--fs-m);color:var(--muted)}
+.sf-brand b{margin-right:6px;font-size:var(--fs-l);font-weight:800;color:var(--ink);letter-spacing:-.01em}
+.sf-links{display:flex;gap:16px}
+.sf-links a{font-weight:600;color:var(--ink);text-decoration:none}
+.sf-links a:hover{text-decoration:underline;text-underline-offset:3px}
+.sf-bottom{display:flex;align-items:baseline;justify-content:space-between;gap:4px 24px;flex-wrap:wrap;padding-top:8px;border-top:1px solid var(--line-soft);font-size:var(--fs-xs);color:var(--faint)}
+.sf-src{display:flex;flex-wrap:wrap;gap:0 14px}
+@media (max-width:760px){.site-foot{padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px))}}

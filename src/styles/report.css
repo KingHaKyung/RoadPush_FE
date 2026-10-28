@@ -18,6 +18,11 @@
 .rp-map{height:280px;border-radius:var(--r-m);overflow:hidden;background:var(--block)}
 .rp-pin svg path{fill:var(--accent);stroke:#fff;stroke-width:2}
 .rp-locbtn{justify-content:center}
+/* 상황 설명 (선택) */
+.rp .fieldset{gap:24px}
+.rp .form-tit label{font-size:var(--fs-l);font-weight:700;color:var(--ink)}
+.rp-opt{margin-left:4px;font-size:var(--fs-m);font-weight:500;color:var(--muted)}
+.rp .textarea-wrap textarea{width:100%;min-height:96px;resize:vertical}
 /* 확인·완료 */
 .rp-summary{margin:0;border-top:2px solid var(--ink)}
 .rp-summary > div{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;padding:14px 4px;border-bottom:1px solid var(--line)}
