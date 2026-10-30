@@ -59,6 +59,72 @@ const readSideW = (): SideW => {
   try { return { ...SIDE_DEFAULT, ...JSON.parse(localStorage.getItem(SIDE_KEY) ?? '{}') }; } catch { return SIDE_DEFAULT; }
 };
 
+/**
+ * 같은 지점 관측 탭 한 줄. 넘치면 가로로 스크롤하고, 양 끝을 흐리게 + ‹ › 버튼으로 남은 칸이 있다는 걸 보여 준다.
+ * 마우스 휠(세로)도 가로로 넘기고, 고른 관측 칸은 화면 안으로 끌어온다
+ */
+function TabScroller({ activeId, children }: { activeId?: string; children: React.ReactNode }) {
+  const ref = useRef<HTMLUListElement>(null);
+  const [edge, setEdge] = useState({ l: false, r: false });
+  const check = () => {
+    const el = ref.current; if (!el) return;
+    setEdge({ l: el.scrollLeft > 2, r: el.scrollLeft + el.clientWidth < el.scrollWidth - 2 });
+  };
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    check();
+    const ro = new ResizeObserver(check); ro.observe(el);
+    // 세로 휠을 가로로 (넘칠 때만, 끝에 닿으면 패널 세로 스크롤로 넘긴다. 옆으로 굴리는 휠·터치패드는 브라우저가 알아서).
+    // 휠은 바로 움직인다 (부드럽게 하면 휠 한 칸마다 애니메이션이 새로 시작돼 앞의 이동이 묻힌다)
+    const wheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      const max = el.scrollWidth - el.clientWidth;
+      if ((dy < 0 && el.scrollLeft <= 0) || (dy > 0 && el.scrollLeft >= max - 1)) return;
+      e.preventDefault(); el.scrollLeft = Math.max(0, Math.min(max, el.scrollLeft + dy));
+    };
+    // 마우스로 끌어서 넘기기. 5px 넘게 끌었으면 놓을 때의 클릭(탭 고르기)은 무시한다
+    let drag: { x: number; left: number; moved: boolean } | null = null;
+    const down = (e: PointerEvent) => { if (e.pointerType === 'mouse' && e.button === 0) drag = { x: e.clientX, left: el.scrollLeft, moved: false }; };
+    const move = (e: PointerEvent) => {
+      if (!drag) return;
+      const dx = e.clientX - drag.x;
+      if (!drag.moved && Math.abs(dx) < 5) return;
+      if (!drag.moved) { drag.moved = true; el.setPointerCapture(e.pointerId); el.classList.add('dragging'); }
+      el.scrollLeft = drag.left - dx;
+    };
+    const up = () => {
+      if (drag?.moved) el.addEventListener('click', (ev) => { ev.stopPropagation(); ev.preventDefault(); }, { capture: true, once: true });
+      drag = null; el.classList.remove('dragging');
+    };
+    el.addEventListener('wheel', wheel, { passive: false });
+    el.addEventListener('pointerdown', down);
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    return () => {
+      ro.disconnect(); el.removeEventListener('wheel', wheel);
+      el.removeEventListener('pointerdown', down); el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
+    };
+  }, []);
+  // 고른 칸이 가려져 있으면 그 칸까지 가로로만 옮긴다 (scrollIntoView는 패널 세로 위치까지 건드려서 쓰지 않는다)
+  useEffect(() => {
+    const el = ref.current, li = el?.querySelector<HTMLElement>('.active'); if (!el || !li) return;
+    const l = li.offsetLeft - el.offsetLeft, r = l + li.offsetWidth;
+    if (l < el.scrollLeft) el.scrollTo({ left: l - 24, behavior: 'smooth' });
+    else if (r > el.scrollLeft + el.clientWidth) el.scrollTo({ left: r - el.clientWidth + 24, behavior: 'smooth' });
+  }, [activeId]);
+  const by = (dir: 1 | -1) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.7, behavior: 'smooth' });
+  return (
+    <div className={`krds-tab-area site-tab-area${edge.l ? ' more-l' : ''}${edge.r ? ' more-r' : ''}`}>
+      <div className="tab line"><ul role="tablist" ref={ref} onScroll={check}>{children}</ul></div>
+      {edge.l && <button type="button" className="tab-scroll l" aria-label="이전 관측 더 보기" tabIndex={-1} onClick={() => by(-1)}>‹</button>}
+      {edge.r && <button type="button" className="tab-scroll r" aria-label="다음 관측 더 보기" tabIndex={-1} onClick={() => by(1)}>›</button>}
+    </div>
+  );
+}
+
 export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey, selectSeg, setSelObs, onUpdate }: Props) {
   /** 우선 점검 지점 정렬 (관측 목록과 따로, 기본은 위험도순) */
   const [qSort, setQSort] = useState<SortKey>('risk');
@@ -124,9 +190,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
         <span className="site-tabs-title"><b>{site ? '이 지점' : '이 링크'} 관측</b><span className="cnt">{list.length}건</span></span>
         {trend}
       </div>
-      <div className="krds-tab-area site-tab-area">
-        <div className="tab line">
-          <ul role="tablist">
+      <TabScroller activeId={cur?.id}>
             {list.map((o, idx) => {
               const active = o.id === cur.id;
               return (
@@ -146,9 +210,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
                 </li>
               );
             })}
-          </ul>
-        </div>
-      </div>
+      </TabScroller>
     </div>
   );
   const obsList = cur && <ObservationDetail key={cur.id} o={cur} onUpdate={(p, l) => onUpdate(cur.id, p, l)} />;

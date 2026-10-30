@@ -129,20 +129,31 @@ svg.map .node{fill:var(--surface);stroke:var(--muted)}
 .site-tabs-title{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-m);color:var(--ink)}
 .site-tabs-title b{font-weight:700}
 .site-tabs-title .cnt{color:var(--faint);font-weight:500;font-variant-numeric:tabular-nums}
-.site-tab-area{width:100%;margin:0;padding:0}
-.site-tab-area .tab{display:flex;width:100%;height:auto;margin:0}
-.site-tab-area .tab.line > ul{display:flex;width:100%;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none;gap:4px;padding:0;margin:0;list-style:none}
+/* 같은 지점 관측: 카드(판정+최신 / 시각 두 줄)를 한 줄로 가로 스크롤. 스크롤 막대는 숨기고, 넘치면 양 끝을 흐리게 + ‹ › 버튼으로 알린다 */
+.site-tab-area{position:relative;width:100%;margin:0;padding:0}
+.site-tab-area .tab{display:block;width:100%;height:auto;margin:0}
+.site-tab-area .tab.line > ul{display:flex;gap:6px;width:100%;margin:0;padding:0;list-style:none;border:0;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:none}
 .site-tab-area .tab.line > ul::-webkit-scrollbar{display:none}
-.site-tab-area .tab.line li{display:flex;flex:1 1 0;min-width:max-content;margin:0}
-.site-tab-area .tab.line .btn-tab{height:38px;min-width:0;padding:0 12px;gap:6px;font-size:var(--fs-m);border:0;background:transparent;cursor:pointer;white-space:nowrap;justify-content:center;color:var(--muted);position:relative;display:inline-flex;align-items:center;width:100%}
+.site-tab-area .tab.line > ul.dragging{cursor:grabbing;user-select:none}
+.site-tab-area .tab.line > ul.dragging .btn-tab{cursor:grabbing}
+.site-tab-area.more-l .tab.line > ul{mask-image:linear-gradient(to right,transparent 0,#000 56px)}
+.site-tab-area.more-r .tab.line > ul{mask-image:linear-gradient(to left,transparent 0,#000 56px)}
+.site-tab-area.more-l.more-r .tab.line > ul{mask-image:linear-gradient(to right,transparent 0,#000 56px,#000 calc(100% - 56px),transparent 100%)}
+.site-tab-area .tab.line li{display:flex;flex:0 0 auto;min-width:140px;margin:0}
+.site-tab-area .tab.line .btn-tab{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:2px 6px;width:100%;height:auto;min-width:0;padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-m);background:var(--surface);color:var(--muted);font-size:var(--fs-m);text-align:left;cursor:pointer;white-space:nowrap}
 .site-tab-area .tab.line .btn-tab:hover{color:var(--ink);background:var(--sunk)}
-.site-tab-area .tab.line .active .btn-tab{color:var(--ink);font-weight:700}
-.site-tab-area .tab.line .active .btn-tab::before{content:"";position:absolute;left:0;bottom:-1px;width:100%;border-bottom:2px solid var(--accent)}
-.site-tab-area .tab.line .btn-tab:focus,.site-tab-area .tab.line .btn-tab:active{outline:none;box-shadow:none}
-.site-tab-area .tab.line .btn-tab:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-.site-tab-area .tab-time{font-variant-numeric:tabular-nums;color:var(--muted);font-size:var(--fs-s)}
+.site-tab-area .tab.line .active .btn-tab{color:var(--ink);font-weight:700;border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.site-tab-area .tab.line .btn-tab::before{content:none}
+.site-tab-area .tab.line .btn-tab:focus,.site-tab-area .tab.line .btn-tab:active{outline:none}
+.site-tab-area .tab.line .btn-tab:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
+.site-tab-area .tab-time{order:2;flex-basis:100%;font-variant-numeric:tabular-nums;color:var(--muted);font-size:var(--fs-s);font-weight:400}
 .site-tab-area .active .tab-time{color:var(--ink)}
-.site-tab-area .tab-badge{display:inline-block;padding:1px 6px;border-radius:999px;background:var(--accent-soft);color:var(--accent-text);font-size:11px;font-weight:700;line-height:1.2}
+.site-tab-area .tab-badge{order:1;display:inline-block;padding:1px 6px;border-radius:999px;background:var(--accent-soft);color:var(--accent-text);font-size:11px;font-weight:700;line-height:1.2}
+.site-tab-area .active .tab-badge{background:var(--surface)}
+.tab-scroll{position:absolute;top:50%;z-index:1;display:grid;place-items:center;width:32px;height:32px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--surface);box-shadow:var(--shadow);color:var(--ink);font-size:20px;line-height:1;cursor:pointer;transform:translateY(-50%)}
+.tab-scroll:hover{background:var(--sunk)}
+.tab-scroll:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tab-scroll.l{left:0}.tab-scroll.r{right:0}
 .divider{border-top:1px solid var(--line-soft)}
 svg.map .mk{cursor:pointer}
 svg.map .mk:focus{outline:none}
