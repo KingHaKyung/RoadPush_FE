@@ -1,7 +1,7 @@
 import type { Observation } from '../types';
 import { NO_DEPT, PASS, routeName, SRC_LABEL } from './constants';
 import { fmtTime } from './format';
-import { effPass } from './segments';
+import { capturedEarlier, effPass } from './segments';
 
 /**
  * 요청 양식 (기존 행정 시스템·메신저에 붙여 넣는 글).
@@ -19,6 +19,7 @@ export function requestText(o: Observation): string {
     `위치: ${o.place}${o.addr ? ` (${o.addr})` : ''}`,
     `좌표: ${o.lat.toFixed(6)}, ${o.lng.toFixed(6)}`,
     `촬영: ${fmtTime(o.t)} · ${SRC_LABEL[o.src]} ${o.dev}`,
+    capturedEarlier(o) ? `접수: ${fmtTime(o.received!)}` : '',
     `판정: ${PASS[effPass(o)].label}${o.risk != null ? ` · 상대 위험도 ${o.risk}` : ''}${o.occ != null ? ` · 점유 ${o.occ}%(사진 면적 기준 근사)` : ''}`,
     `원인: ${o.causes.join(', ') || '없음'}`,
     p ? `감지 이력: 최근 7일 ${p.n}회 · ${p.days}일째 · ${p.kind}` : '',

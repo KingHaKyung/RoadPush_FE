@@ -1,7 +1,7 @@
 import { useId, useState, type ReactNode } from 'react';
 import { ACTIONS, DEPTS, NO_DEPT, PASS, RANK, routeName, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
-import { effPass, segById } from '../lib/segments';
+import { capturedEarlier, effPass, segById } from '../lib/segments';
 import { requestText } from '../lib/request';
 import type { Action, Observation, ObservationPatch } from '../types';
 import { ChipGroup } from './ChipGroup';
@@ -24,7 +24,7 @@ const FP_REASONS = ['차도·배경에 있는 물체', '상시 고정시설', '�
 
 /**
  * 관측 상세: 위치·판정 → 사진 → 핵심 숫자 → 처리 순서로 보여 주고,
- * 담당자가 매번 보지 않아도 되는 것(처리 이력·위치 정보·같은 지점 관측)은 맨 아래에 접어 둔다
+ * 담당자가 매번 보지 않아도 되는 것(처리 이력·위치 정보)은 맨 아래에 접어 둔다
  */
 export function ObservationDetail({ o, onUpdate, layout = 'panel', extra, related }: Props) {
   const [overlay, setOverlay] = useState(true);
@@ -59,7 +59,7 @@ export function ObservationDetail({ o, onUpdate, layout = 'panel', extra, relate
       <div className="od-head">
         <div className="rowx"><h3>{o.place}</h3><Pill pass={o.analyzing ? 'analyzing' : effPass(o)} /></div>
         <p className="meta">
-          <span>{fmtTime(o.t)}</span><span>{SRC_LABEL[o.src]} {o.dev}</span>
+          <span>{capturedEarlier(o) ? `접수 ${fmtTime(o.received!)} · 촬영 ${fmtTime(o.t)}` : fmtTime(o.t)}</span><span>{SRC_LABEL[o.src]} {o.dev}</span>
           {o.human && <span>AI 판정 {PASS[o.pass].label} → 사람 판정</span>}
         </p>
       </div>

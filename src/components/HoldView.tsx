@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { COND_LABEL, DEMO_NOW, PASS, SORT_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
-import { compareObs, matchesQuery } from '../lib/segments';
+import { capturedEarlier, compareObs, matchesQuery } from '../lib/segments';
 import { dayDelta, trend } from '../lib/stats';
 import type { Condition, Filters, Observation, ObservationPatch, Pass, SortKey } from '../types';
 import { KpiCard, SectionTitle } from './Dashboard';
@@ -43,7 +43,9 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
   // 기다린 시간은 촬영 시각이 아니라 접수 시각부터 (앨범의 며칠 전 사진이 오래 기다린 것처럼 보이지 않게). 없으면 촬영 시각
   const since = (o: Observation) => new Date(o.received ?? o.t).getTime();
   const oldest = allOpen.reduce<Observation | null>((a, o) => (!a || since(o) < since(a) ? o : a), null);
-  const waitH = oldest ? Math.max(0, Math.floor((DEMO_NOW.getTime() - since(oldest)) / 36e5)) : 0;
+  // 1시간 안이면 분, 하루 안이면 시간, 그 이상이면 일 (0시간처럼 보이지 않게)
+  const waitMin = oldest ? Math.max(0, Math.floor((DEMO_NOW.getTime() - since(oldest)) / 6e4)) : 0;
+  const wait: [number, string] = waitMin < 60 ? [waitMin, '분'] : waitMin < 1440 ? [Math.floor(waitMin / 60), '시간'] : [Math.floor(waitMin / 1440), '일'];
   const reasons = (Object.keys(COND_LABEL) as Condition[]).map((k) => ({ key: k, label: COND_LABEL[k], n: allOpen.filter((o) => o.cond === k).length }))
     .filter((r) => r.n > 0).sort((a, b) => b.n - a.n);
 
@@ -81,7 +83,7 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
         {/* 검수 대기 카드는 모두 판단 유보라 배지를 빼고, 검수 완료는 사람 판정을 배지로 */}
         <div className="hhead"><h3>{o.place}</h3>{o.human && <Pill pass={o.human} />}</div>
         {/* 위험 지도 '우선 점검 지점'과 같은 정보 줄 */}
-        <span className="sub">{o.area && <span>{o.area}</span>}<span>{SRC_LABEL[o.src]} {o.dev}</span><span>{fmtTime(o.t)}</span></span>
+        <span className="sub">{o.area && <span>{o.area}</span>}<span>{SRC_LABEL[o.src]} {o.dev}</span><span>{capturedEarlier(o) ? `접수 ${fmtTime(o.received!)} · 촬영 ${fmtTime(o.t)}` : fmtTime(o.t)}</span></span>
         <div className="reason">{o.reason}</div>
       </div>
       {actions(o)}
@@ -97,7 +99,7 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
         <KpiCard label="검수 완료" unit="건" value={all.length - allOpen.length} active={view === 'done'} onClick={() => pickView('done')} />
         <KpiCard label="재분석 요청" unit="건" value={allOpen.filter((o) => o.reanalyze).length} active={view === 're'} onClick={() => pickView('re')} />
         {/* 가장 오래 기다린 건: 거르기 대신 그 건의 검수 창을 바로 연다 */}
-        <KpiCard label="가장 오래 기다린 건" unit={oldest ? '시간' : undefined} value={oldest ? waitH : '—'} note={oldest?.place} onClick={oldest ? () => setOpenId(oldest.id) : undefined} />
+        <KpiCard label="가장 오래 기다린 건" unit={oldest ? wait[1] : undefined} value={oldest ? wait[0] : '—'} note={oldest?.place} onClick={oldest ? () => setOpenId(oldest.id) : undefined} />
       </div>
       {/* 한 줄: 관측 목록처럼 검색·정렬을 왼쪽에, 그 옆에 유보 사유로 거르기 (휴대폰은 두 줄) */}
       <div className="card hold-bar">

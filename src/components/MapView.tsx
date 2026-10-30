@@ -110,20 +110,41 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
     if (a >= 0 && b >= 0) trend = b < a ? <span className="trend good">이전 관측보다 개선</span> : b > a ? <span className="trend bad">이전 관측보다 악화</span> : <span className="trend">이전 관측과 같음</span>;
   }
 
-  // 같은 지점의 관측 목록은 보던 관측 아래에 접어 둔다 (펼치면 다른 관측으로 바꿔 볼 수 있다)
-  const related = list.length > 1 && (
-    <details className="od-more">
-      <summary>{site ? '이 지점' : '이 링크'} 관측 <span>{list.length}건</span>{trend}</summary>
-      <div className="obslist">
-        {list.map((o) => (
-          <button key={o.id} type="button" className={`orow${o === cur ? ' on' : ''}`} onClick={() => setSelObs(o.id)}>
-            <PassDot pass={effPass(o)} /><span>{fmtTime(o.t)}</span><span className="small">{SRC_LABEL[o.src]} {o.dev}</span>
-          </button>
-        ))}
+  // 같은 지점의 관측 목록: 상단 탭 메뉴로 전환해서 볼 수 있게 한다
+  const siteTabs = list.length > 1 && (
+    <div className="site-tabs" aria-label="이 지점 관측 목록">
+      <div className="site-tabs-head">
+        <span className="site-tabs-title"><b>{site ? '이 지점' : '이 링크'} 관측</b><span className="cnt">{list.length}건</span></span>
+        {trend}
       </div>
-    </details>
+      <div className="krds-tab-area site-tab-area">
+        <div className="tab line">
+          <ul role="tablist">
+            {list.map((o, idx) => {
+              const active = o.id === cur.id;
+              return (
+                <li key={o.id} className={active ? 'active' : undefined}>
+                  <button
+                    type="button"
+                    className="btn-tab"
+                    role="tab"
+                    aria-selected={active}
+                    title={`${fmtTime(o.t)} · ${SRC_LABEL[o.src]} ${o.dev}`}
+                    onClick={() => setSelObs(o.id)}
+                  >
+                    <PassDot pass={effPass(o)} />
+                    <span className="tab-time">{fmtTime(o.t)}</span>
+                    {idx === 0 && <span className="tab-badge">최신</span>}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
+    </div>
   );
-  const obsList = cur && <ObservationDetail key={cur.id} o={cur} onUpdate={(p, l) => onUpdate(cur.id, p, l)} related={related} />;
+  const obsList = cur && <ObservationDetail key={cur.id} o={cur} onUpdate={(p, l) => onUpdate(cur.id, p, l)} />;
 
   // 오른쪽 패널: 상세(지점·링크를 골랐을 때)면 넓게
   const mode: keyof SideW = sg || selO ? 'detail' : 'list';
@@ -240,7 +261,8 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
         ) : site && cur ? (
           <>
             <button type="button" className="krds-btn small text back" onClick={() => selectSeg(null)}>← 우선 점검 지점</button>
-            {/* 지점 정보(위치·장비·주소·가까운 도로)는 아래 관측 상세 머리에 함께 나온다 */}
+            {/* 같은 지점에 관측이 여러 건이면 상단에서 탭 메뉴로 전환 */}
+            {siteTabs}
             {obsList}
           </>
         ) : sg ? (
@@ -270,6 +292,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
                 {sg.a && <><dt>노드</dt><dd className="small">{sg.a} → {sg.b}</dd></>}
               </dl>
             )}
+            {siteTabs}
             {cur ? obsList : !sg.cl && <p className="small">수집된 관측 없음</p>}
           </>
         ) : null}
