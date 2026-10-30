@@ -37,3 +37,13 @@
 .rp-actions{display:flex;margin-top:4px}
 .rp-actions .krds-btn{flex:1;justify-content:center}
 .rp .rp-missing{margin:-12px 0 0;text-align:center}
+/* 사진 예시 칸: 좋은 예·피할 예 (예시 사진은 준비되면 .rp-ex-img에 넣는다) */
+.rp-examples{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.rp-ex-title{margin:0;font-weight:700;color:var(--ink)}
+.rp-examples ul{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0;padding:0;list-style:none}
+.rp-examples li{display:flex;flex-direction:column;gap:6px}
+.rp-ex-img{display:grid;place-items:center;aspect-ratio:4/3;border:1px dashed var(--line);border-radius:var(--r-m);background:var(--sunk);font-size:var(--fs-s);color:var(--faint)}
+.rp-ex-cap{display:flex;gap:6px;font-size:var(--fs-s);color:var(--muted)}
+.rp-ex-cap b{flex:none;font-weight:700}
+.rp-examples .ok .rp-ex-cap b{color:var(--pass)}
+.rp-examples .ng .rp-ex-cap b{color:var(--blocked)}

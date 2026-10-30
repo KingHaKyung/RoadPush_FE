@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DEMO_NOW, PASS, routeName, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
 import { addDays, dayStart, effPass, obsTime, RANGE_MAX_DAYS, ymd } from '../lib/segments';
@@ -35,6 +35,8 @@ const prevRange = (r: DateRange): DateRange => ({ from: addDays(r.from, -days(r)
 const dot = (s: string) => s.replace(/-/g, '.');
 
 const isRisk = (o: Observation) => ['blocked', 'narrowed'].includes(effPass(o));
+/** 화면에 보여 줄 처리 미완료 수 (엑셀에는 전부) */
+const OPEN_SHOWN = 20;
 const STATES: Action[] = ['미처리', '현장점검 요청', '조치 중', '조치 완료'];
 
 /** 기간 안의 관측으로 보고서에 들어갈 숫자·표를 만든다 */
@@ -63,7 +65,7 @@ function summarize(obs: Observation[], r: DateRange) {
     causes: count(list.filter(isRisk), (o) => o.causes),
     repeat: [...latest.values()].filter((o) => trendOf(o)).sort((a, b) => (b.persist?.n ?? 0) - (a.persist?.n ?? 0)),
     depts: count(targets, (o) => [o.dept]).map(([dept]) => ({ dept, by: STATES.map((s) => targets.filter((o) => o.dept === dept && o.action === s).length) })),
-    open: targets.filter((o) => o.action !== '조치 완료').sort((a, b) => (b.risk ?? -1) - (a.risk ?? -1)).slice(0, 20),
+    open: targets.filter((o) => o.action !== '조치 완료').sort((a, b) => (b.risk ?? -1) - (a.risk ?? -1)),
   };
 }
 
@@ -105,6 +107,29 @@ export function ReportView({ obs }: { obs: Observation[] }) {
   };
 
   const delta = (k: 'total' | 'blocked' | 'narrowed' | 'hold') => ({ now: cur[k], prev: prev[k] });
+
+  /**
+   * 인쇄·PDF: 보고서 부분만 따로 HTML 문서로 만들어 보이지 않는 틀(iframe)에서 인쇄한다.
+   * 화면의 스타일을 그대로 옮겨 같은 모양으로 나오고, 뒤 화면·창 테두리·도구 줄은 들어가지 않는다
+   */
+  const reportRef = useRef<HTMLElement>(null);
+  const printReport = () => {
+    const src = reportRef.current; if (!src) return;
+    const frame = document.createElement('iframe');
+    frame.title = '보고서 인쇄';
+    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+    document.body.append(frame);
+    const doc = frame.contentDocument!, win = frame.contentWindow!;
+    const styles = [...document.querySelectorAll('style, link[rel="stylesheet"]')].map((n) => n.outerHTML).join('');
+    doc.open();
+    doc.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title><base href="${location.origin}/">${styles}</head>`
+      + `<body class="report-print">${src.outerHTML}</body></html>`);
+    doc.close();
+    // 글꼴·스타일을 다 읽은 뒤 인쇄하고, 인쇄 창을 닫으면 틀을 치운다
+    const go = () => { win.focus(); win.print(); };
+    win.addEventListener('afterprint', () => frame.remove());
+    Promise.race([doc.fonts?.ready ?? Promise.resolve(), new Promise((r) => setTimeout(r, 1500))]).then(() => setTimeout(go, 100));
+  };
   return (
     <section className="report-view">
       <div className="toolbar report-bar">
@@ -118,18 +143,17 @@ export function ReportView({ obs }: { obs: Observation[] }) {
         </div>
         <div className="period-range" role="group" aria-label="보고 기간 날짜">
           <label className="vh" htmlFor="rp-from">시작일</label>
-          <input className="krds-input small" type="date" id="rp-from" value={range.from} max={today} onChange={(e) => { setPreset('custom'); setFrom(e.target.value); }} />
+          <input className="krds-input small" type="date" id="rp-from" value={range.from} min={addDays(today, -365)} max={today} title="최대 3개월까지 고를 수 있습니다" onChange={(e) => { setPreset('custom'); setFrom(e.target.value); }} />
           <span aria-hidden="true">~</span>
           <label className="vh" htmlFor="rp-to">종료일</label>
-          <input className="krds-input small" type="date" id="rp-to" value={range.to} max={today} onChange={(e) => { setPreset('custom'); setTo(e.target.value); }} />
-          <span className="period-hint">최대 3개월</span>
+          <input className="krds-input small" type="date" id="rp-to" value={range.to} min={range.from} max={[addDays(range.from, RANGE_MAX_DAYS - 1), today].sort()[0]} title="최대 3개월까지 고를 수 있습니다" onChange={(e) => { setPreset('custom'); setTo(e.target.value); }} />
         </div>
         <span className="grow" />
-        <button type="button" className="krds-btn small tertiary" onClick={() => window.print()}>인쇄·PDF 저장</button>
+        <button type="button" className="krds-btn small tertiary" onClick={printReport}>인쇄·PDF 저장</button>
         <button type="button" className="krds-btn small secondary" onClick={download}>엑셀로 내려받기</button>
       </div>
 
-      <article className="report">
+      <article className="report" ref={reportRef}>
         <header className="report-head">
           <h2>{title}</h2>
           <p>이전 기간({dot(prevRange(range).from)} ~ {dot(prevRange(range).to)})과 비교 · {days(range)}일</p>
@@ -183,12 +207,12 @@ export function ReportView({ obs }: { obs: Observation[] }) {
           )}
 
           <section>
-            <SectionTitle title="처리 미완료 관측" sub={`위험도순 ${cur.open.length}건${cur.open.length === 20 ? ' (상위 20건)' : ''}`} />
+            <SectionTitle title="처리 미완료 관측" sub={`위험도순 ${cur.open.length}건${cur.open.length > OPEN_SHOWN ? ` 중 상위 ${OPEN_SHOWN}건 (전체는 엑셀)` : ''}`} />
             <div className="krds-table-wrap list-table">
               <table className="tbl col data">
                 <caption>처리 미완료 관측</caption>
                 <thead><tr><th scope="col">위치</th><th scope="col">판정</th><th scope="col" className="num">위험도</th><th scope="col">처리 유형</th><th scope="col">담당 부서</th><th scope="col">처리 상태</th><th scope="col">촬영</th></tr></thead>
-                <tbody>{cur.open.length ? cur.open.map((o) => (
+                <tbody>{cur.open.length ? cur.open.slice(0, OPEN_SHOWN).map((o) => (
                   <tr key={o.id}><td>{o.place}</td><td><PassDot pass={effPass(o)} /></td><td className="num">{o.risk ?? '—'}</td><td>{[...new Set(o.routes.map((x) => routeName(x.type)))].join(', ')}</td><td>{o.dept}</td><td>{o.action}</td><td>{fmtTime(o.t)} · {SRC_LABEL[o.src]}</td></tr>
                 )) : <tr><td colSpan={7} className="small">모두 처리했습니다.</td></tr>}</tbody>
               </table>

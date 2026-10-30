@@ -7,6 +7,7 @@ import type { Condition, Filters, Observation, ObservationPatch, Pass, SortKey }
 import { KpiCard, SectionTitle } from './Dashboard';
 import { EmptyState } from './EmptyState';
 import { FrameView } from './FrameView';
+import { MoreButton } from './MoreButton';
 import { Modal } from './Modal';
 import { ObservationDetail } from './ObservationDetail';
 import { Pill } from './Pill';
@@ -33,6 +34,13 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
   const allOpen = all.filter((o) => !o.human);
   /** 지표 카드로 거르기: 검수 대기만 · 검수 완료만 · 재분석 요청만 (다시 누르면 해제) */
   const [view, setView] = useState<'' | 'open' | 'done' | 're'>('');
+  /** 카드는 사진을 받으므로 12장씩 나눠 보여 준다 (검색·사유·지표 카드를 바꾸면 처음부터) */
+  const STEP = 12;
+  const [openN, setOpenN] = useState(STEP);
+  const [doneN, setDoneN] = useState(STEP);
+  const filterKey = `${f.q}|${cond}|${view}|${sort}`;
+  const [lastKey, setLastKey] = useState(filterKey);
+  if (lastKey !== filterKey) { setLastKey(filterKey); setOpenN(STEP); setDoneN(STEP); }
   const pickView = (v: 'open' | 'done' | 're') => setView((cur) => (cur === v ? '' : v));
   const hold = cond ? all.filter((o) => o.cond === cond) : all;
   const open = view === 'done' ? [] : hold.filter((o) => !o.human && (view !== 're' || o.reanalyze));
@@ -125,7 +133,7 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
       </div>
       {view !== 'done' && <>
         <SectionTitle title={view === 're' ? '재분석 요청' : '검수 대기'} sub={`${open.length}건`} />
-        <div className="holdgrid">{open.length ? open.map(card) : f.q.trim() ? (
+        <div className="holdgrid">{open.length ? open.slice(0, openN).map(card) : f.q.trim() ? (
           <EmptyState kind="search" title={`'${f.q.trim()}'에 맞는 판단 유보 건이 없습니다`} desc="위치·행정구역·장비 이름이나 관측 ID로 찾아보세요."
             action={{ label: '검색어 지우기', onClick: () => setFilters({ ...f, q: '' }) }} />
         ) : cond ? (
@@ -135,10 +143,12 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
         ) : (
           <EmptyState kind="review" title="검수할 판단 유보 건이 없습니다" desc="AI가 사진만으로 판정하지 못한 관측이 들어오면 여기에 모입니다." />
         )}</div>
+        <MoreButton shown={openN} total={open.length} step={STEP} onMore={() => setOpenN((n) => n + STEP)} />
       </>}
       {(done.length > 0 || view === 'done') && <>
         <SectionTitle title="검수 완료" sub={`${done.length}건`} />
-        <div className="holdgrid">{done.length ? done.map(card) : <p className="small">아직 검수를 마친 건이 없습니다.</p>}</div>
+        <div className="holdgrid">{done.length ? done.slice(0, doneN).map(card) : <p className="small">아직 검수를 마친 건이 없습니다.</p>}</div>
+        <MoreButton shown={doneN} total={done.length} step={STEP} onMore={() => setDoneN((n) => n + STEP)} />
       </>}
       <Modal open={!!opened} label={opened ? `${opened.place} 판단 유보 검수` : '판단 유보 검수'} onClose={closeModal}>
         {opened && <ObservationDetail key={opened.id} o={opened} layout="wide" onUpdate={(p, l) => onUpdate(opened.id, p, l)}

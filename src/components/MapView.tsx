@@ -10,6 +10,7 @@ import { RiskMap } from './map/RiskMap';
 import { ObservationDetail } from './ObservationDetail';
 import { PeriodToggle } from './PeriodToggle';
 import { PassDot, Pill } from './Pill';
+import { MoreButton } from './MoreButton';
 import { TrendIcon } from './RouteBadge';
 
 interface Props {
@@ -61,6 +62,12 @@ const readSideW = (): SideW => {
 export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey, selectSeg, setSelObs, onUpdate }: Props) {
   /** 우선 점검 지점 정렬 (관측 목록과 따로, 기본은 위험도순) */
   const [qSort, setQSort] = useState<SortKey>('risk');
+  /** 우선 점검 지점은 20곳씩 (조건·정렬을 바꾸면 처음부터) */
+  const Q_STEP = 20;
+  const [qN, setQN] = useState(Q_STEP);
+  const qKey = `${f.q}|${f.period}|${f.range.from}|${f.range.to}|${qSort}|${[...f.pass, ...f.act, ...f.src].join()}|${f.dept}`;
+  const [lastQKey, setLastQKey] = useState(qKey);
+  if (lastQKey !== qKey) { setLastQKey(qKey); setQN(Q_STEP); }
   /** 목록에서 마우스를 올리거나 키보드로 고른 지점 (지도에서 강조) */
   const [hoverPin, setHoverPin] = useState<string | null>(null);
   const [filterOpen, setFilterOpen] = useState(readFilterOpen);
@@ -237,7 +244,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
                 {(Object.keys(SORT_LABEL) as SortKey[]).map((k) => <option key={k} value={k}>{SORT_LABEL[k]}</option>)}
               </select>
             </div>
-            {queue.length ? queue.map((p) => (
+            {queue.length ? queue.slice(0, qN).map((p) => (
               <button key={p.key} type="button" className="qitem" onClick={() => { setHoverPin(null); pickPin(p, true); }}
                 onMouseEnter={() => setHoverPin(p.key)} onMouseLeave={() => setHoverPin(null)} onFocus={() => setHoverPin(p.key)} onBlur={() => setHoverPin(null)}>
                 {/* 위험도 사각형: 판정 색 옅은 바탕 + 진한 숫자 (판정과 위험도를 한 번에) */}
@@ -257,6 +264,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
             ) : (
               <EmptyState kind="map" title="지금 점검할 지점이 없습니다" desc="단절·좁아짐·판단 유보 지점 중 처리가 끝나지 않은 곳이 위험도순으로 올라옵니다." />
             )}
+            <MoreButton shown={qN} total={queue.length} step={Q_STEP} onMore={() => setQN((n) => n + Q_STEP)} />
           </div>
         ) : site && cur ? (
           <>

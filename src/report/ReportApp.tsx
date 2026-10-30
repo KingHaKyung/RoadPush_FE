@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { API_BASE } from '../api/client';
 import { devFlag } from '../lib/dev';
-import { addReportNote, dongName, inspectPhoto, siteCandidates, submitReport, type SiteCandidates, type Source } from './api';
+import { addReportNote, dongName, siteCandidates, submitReport, type SiteCandidates, type Source } from './api';
+import { inKorea, loadImage, readPhotoMeta, shrinkPhoto } from './photo';
 import { LocationMap } from './LocationMap';
 import '../styles/report.css';
 
@@ -9,8 +10,6 @@ type Loc = { lat: number; lng: number; source: Source };
 
 /** 한국 시간 ISO 8601 ('YYYY-MM-DDTHH:mm:ss+09:00') */
 const kstIso = (d: Date) => `${new Date(d.getTime() + 9 * 36e5).toISOString().slice(0, 19)}+09:00`;
-/** 백엔드가 읽은 사진 촬영 시각. 시간대가 없으면 한국 시간으로 본다 */
-const withTz = (s: string) => (/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : `${s.slice(0, 19)}+09:00`);
 /** '2026년 10월 26일 17:00' */
 const kstText = (iso: string) => {
   const d = new Date(new Date(iso).getTime() + 9 * 36e5);
@@ -23,6 +22,13 @@ const NOTE_MAX = 300;
 const PHOTO_EXT = ['.jpg', '.jpeg', '.png', '.webp'];
 const PHOTO_MAX = 20 * 1024 * 1024;
 const LOC_TEXT: Record<Source, string> = { exif: '사진에 담긴 위치', device: '현재 내 위치', manual: '지도에서 고른 위치' };
+/** 사진 예시 칸 (사진은 준비되면 넣는다) */
+const PHOTO_EXAMPLES = [
+  { ok: true, text: '보도 폭 전체가 보이게' },
+  { ok: true, text: '막은 물건과 남은 길이 함께' },
+  { ok: false, text: '너무 가까이 찍은 사진' },
+  { ok: false, text: '어둡거나 흔들린 사진' },
+];
 const TIME_TEXT: Record<Source, string> = { exif: '사진에 담긴 시각', device: '사진 파일 시각', manual: '직접 고른 시각' };
 
 /**
@@ -42,7 +48,10 @@ export function ReportApp() {
   const [cands, setCands] = useState<SiteCandidates | null>(null);
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState('');
-  const [sending, setSending] = useState(false);
+  /** 보내는 단계: 사진 줄이기 → 보내기 (버튼 글자로 알린다) */
+  const [sending, setSending] = useState<'' | 'shrink' | 'send'>('');
+  /** 사진에서 위치를 못 얻었을 때 할 일 (사진 칸 아래) */
+  const [photoNote, setPhotoNote] = useState('');
   const [note, setNote] = useState('');
   /** 고른 파일이 형식·크기가 맞지 않을 때 사진 칸 아래 안내 */
   const [fileError, setFileError] = useState('');
@@ -91,22 +100,35 @@ export function ReportApp() {
       : f.size > PHOTO_MAX ? `20MB 이하 사진만 올릴 수 있습니다 (${now}).` : '';
     setFileError(bad);
     if (bad) { if (fileRef.current) fileRef.current.value = ''; return; }
-    setError(''); setFile(f); setPreview(URL.createObjectURL(f));
+    // 브라우저가 열지 못하는 사진(깨진 파일 등)은 받지 않는다
+    const url = URL.createObjectURL(f);
+    try { await loadImage(url); } catch {
+      URL.revokeObjectURL(url);
+      setFileError('사진을 열 수 없습니다. 파일이 손상됐을 수 있어요. 다른 사진을 골라 주세요.');
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
+    setError(''); setFile(f); setPreview(url); setPhotoNote('');
     // 사진 위치로 정한 곳은 새 사진에 맞춰 다시 정한다. 사용자가 고른 위치는 그대로 둔다
     if (loc?.source === 'exif') { setLoc(null); setCands(null); }
     setTaken({ at: kstIso(new Date(f.lastModified || Date.now())), source: 'device' });
-    if (!API_BASE) return;
+    // 촬영 시각·위치는 브라우저에서 바로 읽는다 (서버에 원본을 따로 올리지 않는다)
     setReading(true);
-    try {
-      const r = await inspectPhoto(f);
-      if (r.captured_at) setTaken({ at: withTz(r.captured_at), source: 'exif' });
-      if (r.lat != null && r.lng != null) { setLoc({ lat: r.lat, lng: r.lng, source: 'exif' }); setCands(r.candidates); }
-    } catch {
-      // 사진 정보를 못 읽으면 파일 시각을 쓰고, 위치는 지도에서 고른다
-    } finally { setReading(false); }
+    const meta = await readPhotoMeta(f);
+    setReading(false);
+    if (meta.at) setTaken({ at: kstIso(meta.at), source: 'exif' });
+    // 사용자가 이미 지도나 현재 위치로 고른 곳이 있으면 덮지 않는다
+    const userPicked = loc && loc.source !== 'exif';
+    if (meta.gps && inKorea(meta.gps.lat, meta.gps.lng)) {
+      if (!userPicked) setLoc({ lat: meta.gps.lat, lng: meta.gps.lng, source: 'exif' });
+    } else if (!userPicked) {
+      setPhotoNote(meta.gps
+        ? "사진에 담긴 위치가 국내가 아니에요. 아래 지도에서 막힌 곳을 고르거나 '현재 위치 사용'을 눌러 주세요."
+        : "사진에 위치 정보가 없어요. 아래 지도에서 막힌 곳을 고르거나 '현재 위치 사용'을 눌러 주세요.");
+    }
   };
   const removePhoto = () => {
-    setFile(null); setPreview(''); setTaken(null);
+    setFile(null); setPreview(''); setTaken(null); setPhotoNote('');
     if (loc?.source === 'exif') { setLoc(null); setCands(null); }
     // 같은 사진을 다시 골라도 change가 일어나게 비운다
     if (fileRef.current) fileRef.current.value = '';
@@ -134,10 +156,13 @@ export function ReportApp() {
 
   const send = async () => {
     if (!file || !loc) return;
-    setSending(true); setError('');
+    setSending('shrink'); setError('');
     try {
+      // 보내기 전에 줄인다 (원본이 수 MB여도 수백 KB로). 줄이지 못하면 원본 그대로
+      const small = await shrinkPhoto(file, preview).catch(() => file);
+      setSending('send');
       const r = await submitReport({
-        file, capturedAt: taken?.at ?? kstIso(new Date()), capturedAtSource: taken?.source ?? 'device',
+        file: small, capturedAt: taken?.at ?? kstIso(new Date()), capturedAtSource: taken?.source ?? 'device',
         lat: loc.lat, lng: loc.lng, locationSource: loc.source,
         ...(near ? { siteId: near.site.id } : { newSiteName: road ? `${road} 시민 제보` : '시민 제보 지점' }),
       });
@@ -148,7 +173,7 @@ export function ReportApp() {
     } catch (e) {
       // fetch가 응답 없이 실패하면(TypeError) 연결 문제. 영어 기본 문구 대신 안내
       setError(e instanceof TypeError ? '서버에 연결하지 못해 보내지 못했습니다. 인터넷 연결을 확인하고 다시 눌러 주세요.' : (e as Error).message);
-    } finally { setSending(false); }
+    } finally { setSending(''); }
   };
 
   const restart = () => { removePhoto(); setLoc(null); setCands(null); setNote(''); setDone(null); setError(''); setFileError(''); };
@@ -189,6 +214,18 @@ export function ReportApp() {
             <p>JPG·PNG·WEBP, 20MB 이하</p>
           </div>
         </div>
+        {/* 잘 나온 사진 예시: 지금은 칸만 (예시 사진이 준비되면 rp-ex-img에 넣는다) */}
+        <div className="rp-examples" aria-label="사진 예시">
+          <p className="rp-ex-title">이렇게 찍어 주세요</p>
+          <ul>
+            {PHOTO_EXAMPLES.map((e) => (
+              <li key={e.text} className={e.ok ? 'ok' : 'ng'}>
+                <span className="rp-ex-img" aria-hidden="true">예시 사진</span>
+                <span className="rp-ex-cap"><b>{e.ok ? '좋은 예' : '피할 예'}</b>{e.text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
         {/* capture를 넣지 않는다: 넣으면 휴대폰이 바로 카메라를 열어 앨범을 고를 수 없다. 없으면 촬영·앨범 중에서 고르게 한다.
             형식을 jpeg·png·webp로 적으면 아이폰은 HEIC 사진을 JPEG로 바꿔 넘긴다 */}
         <input ref={fileRef} id={`${uid}-file`} type="file" accept={`${PHOTO_EXT.join(',')},image/jpeg,image/png,image/webp`} hidden onChange={(e) => choose(e.target.files?.[0])} />
@@ -215,6 +252,7 @@ export function ReportApp() {
             </ul>
             <img className="rp-preview" src={preview} alt="고른 사진" />
             {taken && !reading && <p className="form-hint">촬영 시각 {kstText(taken.at)} ({TIME_TEXT[taken.source]})</p>}
+            {photoNote && !loc && <p className="form-hint-information">{photoNote}</p>}
           </div>
         )}
         {fileError && <p className="form-hint-invalid" role="alert">{fileError}</p>}
@@ -259,8 +297,8 @@ export function ReportApp() {
 
       <div className="btn-wrap rp-actions">
         {/* 빠진 것은 미리 띄우지 않고, 눌렀을 때 알린다 */}
-        <button type="button" className="krds-btn large primary" disabled={reading || sending || !API_BASE || !online} onClick={() => (missing ? setError(missing) : send())}>
-          {sending ? '보내는 중' : '제보하기'}
+        <button type="button" className="krds-btn large primary" disabled={reading || !!sending || !API_BASE || !online} onClick={() => (missing ? setError(missing) : send())}>
+          {sending === 'shrink' ? '사진 준비 중' : sending ? '보내는 중' : '제보하기'}
         </button>
       </div>
       {!API_BASE ? <p className="form-hint rp-missing">제보 서버에 연결되지 않아 지금은 접수할 수 없습니다.</p>
