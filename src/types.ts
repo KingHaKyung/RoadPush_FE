@@ -88,7 +88,7 @@ export interface ObservationBase {
   action: Action;
   dept: string;
   /** 백엔드 연결 시: 원본 사진·분석 결과 이미지 주소 */
-  img?: { original: string; overlay?: string };
+  img?: { original: string; thumb?: string; overlay?: string };
 }
 
 /** 화면에서 쓰는 관측: AI 결과 + 사람 판단·처리 기록 */
