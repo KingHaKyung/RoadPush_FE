@@ -9,8 +9,10 @@ import { fmtTime } from '../lib/format';
 export function FrameView({ o, overlay, thumb }: { o: Observation; overlay: boolean; thumb?: boolean }) {
   // 백엔드에 연결되면 실제 사진을 보여 준다 ('분석'이면 overlay, 없으면 원본)
   if (o.img) {
-    const src = overlay && o.img.overlay ? o.img.overlay : o.img.original;
-    return <img src={src} alt={`${o.place} ${overlay ? '분석 결과' : '원본'} 사진`} style={{ width: '100%', height: '100%', objectFit: thumb ? 'cover' : 'contain', background: '#000' }} />;
+    const src = overlay && o.img.overlay ? o.img.overlay : thumb ? o.img.thumb ?? o.img.original : o.img.original;
+    // 썸네일은 화면에 들어올 때 받는다 (원본이 수 MB라 카드가 많으면 한꺼번에 받으면 느리다)
+    return <img src={src} alt={`${o.place} ${overlay ? '분석 결과' : '원본'} 사진`} loading={thumb ? 'lazy' : undefined} decoding="async"
+      style={{ width: '100%', height: '100%', objectFit: thumb ? 'cover' : 'contain', background: '#000' }} />;
   }
   const W = 320, H = 190, top = 88, bot = H;
   const L = (y: number) => 205 + ((150 - 205) * (y - top)) / (bot - top);

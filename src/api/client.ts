@@ -20,7 +20,8 @@ export interface AnalysisResponse {
   passability: ApiPass | null;
   risk_score: number | null;
   uncertainty_reason: string | null;
-  images: { original: string; surface_overlay?: string | null; obstacle_overlay?: string | null };
+  /** thumbnail: 목록·카드용 작은 사진 (백엔드가 아직 주지 않으면 원본을 쓴다) */
+  images: { original: string; thumbnail?: string | null; surface_overlay?: string | null; obstacle_overlay?: string | null };
   review_status: 'pending' | 'confirmed' | 'corrected';
   human_passability: ApiPass | null;
   // 화면용 추가 필드
@@ -114,7 +115,7 @@ export function toObservation(a: AnalysisResponse) {
     cond: COND.includes(a.uncertainty_code as Condition) ? (a.uncertainty_code as Condition) : undefined,
     action: a.action.label as Action,
     dept: a.action.dept ?? '미배정',
-    img: { original: a.images.original, overlay: a.images.obstacle_overlay ?? a.images.surface_overlay ?? undefined },
+    img: { original: a.images.original, thumb: a.images.thumbnail ?? undefined, overlay: a.images.obstacle_overlay ?? a.images.surface_overlay ?? undefined },
   };
   return {
     base,
