@@ -1,4 +1,4 @@
-import { API_BASE } from '../api/client';
+import { USE_API } from '../api/client';
 import type { Action, Condition, Pass, Period, Route, RouteType, SortKey, Source } from '../types';
 
 /** 판정 이름과 글자색(app.css 판정 토큰). 지도 핀 색은 PIN_COLOR */
@@ -51,7 +51,7 @@ export const ROUTES: Record<string, Route> = {
 };
 /** 원인마다 처리 경로 (같은 원인은 한 번만, 모르는 원인은 뺀다) */
 export const routesOf = (causes: string[]): Route[] => [...new Set(causes)].flatMap((c) => (ROUTES[c] ? [ROUTES[c]] : []));
-export const PERIOD_LABEL: Record<Period, string> = { today: '오늘', '3d': '최근 3일', all: '전체 기간' };
+export const PERIOD_LABEL: Record<Period, string> = { today: '오늘', '3d': '최근 3일', range: '기간 선택' };
 export const SORT_LABEL: Record<SortKey, string> = { time: '날짜순', area: '행정구역 이름순', risk: '위험도순' };
 export const SRC_LABEL: Record<Source, string> = { cctv: 'CCTV', car: '단속차량', upload: '직접 업로드' };
 export const RANK: Record<string, string> = {
@@ -72,4 +72,4 @@ export const COND_LABEL: Record<Condition, string> = {
   occupancy_unverified: '장애물 범위 불확실', low_coverage: '측정 부족',
 };
 /** 기준 시각: 예시 데이터면 고정 시각, 백엔드에 연결하면 현재 시각 */
-export const DEMO_NOW = API_BASE ? new Date() : new Date('2026-10-18T14:40:00+09:00');
+export const DEMO_NOW = USE_API ? new Date() : new Date('2026-10-18T14:40:00+09:00');

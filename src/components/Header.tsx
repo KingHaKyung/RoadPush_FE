@@ -12,7 +12,8 @@ export function Header({ tab, holdCount, error }: { tab: Tab; holdCount: number;
       <a className="skip" href="#content">본문 바로가기</a>
       <header className="top">
         <div className="top-in">
-          <div className="brand"><b>RoadPush</b></div>
+          {/* 로고를 누르면 첫 화면(위험 지도)으로 */}
+          <div className="brand"><a href="#map" aria-label="RoadPush 위험 지도로"><b>RoadPush</b></a></div>
           {/* KRDS 탭(라인형) 모양의 주 메뉴 */}
           <nav className="krds-tab-area top-nav" aria-label="주 메뉴">
             <div className="tab line">

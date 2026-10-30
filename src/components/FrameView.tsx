@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { devFlag } from '../lib/dev';
 import type { Observation } from '../types';
 import { SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
@@ -6,12 +8,32 @@ import { fmtTime } from '../lib/format';
  * 촬영 화면 자리 표시용 그림. 백엔드가 붙으면 원본 사진·overlay 이미지로 바꾼다.
  * thumb: 카드 썸네일. 사진 비율과 상관없이 칸을 꽉 채운다 (잘리는 부분은 큰 창에서 본다)
  */
+/** 개발 중 ?img=fail: 모든 사진 주소를 틀린 주소로 (예시 데이터처럼 사진이 없어도) */
+const IMG_FAIL = devFlag('img') === 'fail' ? 'http://127.0.0.1:1/x.jpg' : null;
+
 export function FrameView({ o, overlay, thumb }: { o: Observation; overlay: boolean; thumb?: boolean }) {
+  // 사진을 못 받으면(파일 없음·서버 꺼짐) 깨진 그림 대신 안내. 보던 사진(원본/분석)이 바뀌면 다시 시도
+  const [broken, setBroken] = useState<string | null>(null);
+  const img = IMG_FAIL ? { original: IMG_FAIL, thumb: IMG_FAIL, overlay: IMG_FAIL } : o.img;
   // 백엔드에 연결되면 실제 사진을 보여 준다 ('분석'이면 overlay, 없으면 원본)
-  if (o.img) {
-    const src = overlay && o.img.overlay ? o.img.overlay : thumb ? o.img.thumb ?? o.img.original : o.img.original;
+  if (img) {
+    const src = overlay && img.overlay ? img.overlay : thumb ? img.thumb ?? img.original : img.original;
+    if (broken === src) return (
+      <div className={`frame-broken${thumb ? ' sm' : ''}`} role="img" aria-label={`${o.place} 사진을 불러오지 못했습니다`}>
+        {/* 옅은 사진 틀 + 오른쪽 아래 느낌표 (경고색 대신 사진 틀과 같은 인디고 톤) */}
+        <svg viewBox="0 0 48 40" width={thumb ? 40 : 56} height={thumb ? 33 : 47} aria-hidden="true">
+          <rect x="2" y="2" width="38" height="30" rx="5" fill="#fff" stroke="#C7C8F3" strokeWidth="2" />
+          <path d="M7 28l9-10 6 6 4-4 10 8z" fill="#E3E4FA" />
+          <circle cx="29" cy="11" r="3.5" fill="#E3E4FA" />
+          <circle cx="38" cy="30" r="8" fill="#A6A8EA" stroke="#fff" strokeWidth="2" />
+          <path d="M38 25.5v5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
+          <circle cx="38" cy="34" r="1.3" fill="#fff" />
+        </svg>
+        <span>사진을 불러오지 못했습니다</span>
+      </div>
+    );
     // 썸네일은 화면에 들어올 때 받는다 (원본이 수 MB라 카드가 많으면 한꺼번에 받으면 느리다)
-    return <img src={src} alt={`${o.place} ${overlay ? '분석 결과' : '원본'} 사진`} loading={thumb ? 'lazy' : undefined} decoding="async"
+    return <img src={src} alt={`${o.place} ${overlay ? '분석 결과' : '원본'} 사진`} loading={thumb ? 'lazy' : undefined} decoding="async" onError={() => setBroken(src)}
       style={{ width: '100%', height: '100%', objectFit: thumb ? 'cover' : 'contain', background: '#000' }} />;
   }
   const W = 320, H = 190, top = 88, bot = H;

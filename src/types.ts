@@ -32,7 +32,10 @@ export type Source = 'cctv' | 'car' | 'upload';
 export type Condition = 'night' | 'rain' | 'occluded' | 'mixed'
   | 'boundary_review' | 'boundary_failed' | 'surface_uncertain' | 'occupancy_unverified' | 'low_coverage';
 export type Review = '미검수' | '확인' | '수정';
-export type Period = 'today' | '3d' | 'all';
+/** range: 직접 고른 기간 (Filters.range, 최대 RANGE_MAX_DAYS일) */
+export type Period = 'today' | '3d' | 'range';
+/** 날짜 'YYYY-MM-DD' (화면 시간대 기준, 양 끝 포함) */
+export interface DateRange { from: string; to: string }
 /** 정렬: 날짜(최신순) · 행정구역 이름(가나다순) · 위험도(높은 순) */
 export type SortKey = 'time' | 'area' | 'risk';
 export type Tab = 'map' | 'list' | 'hold';
@@ -79,6 +82,8 @@ export interface ObservationBase {
   /** 지번 주소 (행정동) */
   addr?: string;
   t: string;
+  /** 서버가 받은 시각 (백엔드 created_at). 시민이 며칠 전 사진을 올리면 촬영 시각(t)보다 한참 뒤다 */
+  received?: string;
   pass: Pass;
   risk: number | null;
   occ: number | null;
@@ -87,6 +92,8 @@ export interface ObservationBase {
   cond?: Condition;
   action: Action;
   dept: string;
+  /** 첫 AI 분석이 아직 안 끝남 (판정이 없어 판단 유보·지도에서 빼고 목록에만 '분석 중'으로) */
+  analyzing?: boolean;
   /** 백엔드 연결 시: 원본 사진·분석 결과 이미지 주소 */
   img?: { original: string; thumb?: string; overlay?: string };
 }
@@ -128,6 +135,8 @@ export type ObservationPatch = Partial<Pick<Observation, 'action' | 'dept' | 'hu
 
 export interface Filters {
   period: Period;
+  /** period가 range일 때 보는 기간 */
+  range: DateRange;
   src: Set<Source>;
   pass: Set<Pass>;
   act: Set<Action>;

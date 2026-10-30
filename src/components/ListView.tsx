@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { ACTIONS, DEPTS, PASS, PASS_KEYS, PERIOD_LABEL, routeName, SORT_LABEL, SRC_LABEL } from '../lib/constants';
+import { ACTIONS, DEMO_NOW, DEPTS, PASS, PASS_KEYS, PERIOD_LABEL, routeName, SORT_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
-import { compareObs, effPass, inPeriod, matchesFilters, matchesQuery } from '../lib/segments';
+import { addDays, compareObs, effPass, inPeriod, matchesFilters, matchesQuery, RANGE_MAX_DAYS, ymd } from '../lib/segments';
 import { dayDelta, trend } from '../lib/stats';
 import type { Action, Filters, Observation, ObservationPatch, Pass, Route, SortKey } from '../types';
 import { KpiCard } from './Dashboard';
+import { Modal } from './Modal';
+import { ReportView } from './ReportView';
+import { EmptyState } from './EmptyState';
 import { PeriodToggle } from './PeriodToggle';
 import { PassDot } from './Pill';
 import { RouteBadge, TrendBadge, trendOf } from './RouteBadge';
@@ -39,11 +42,23 @@ function RouteSummary({ routes }: { routes: Route[] }) {
   );
 }
 
+/** 정렬 표시: 위·아래 삼각형 한 쌍. 정렬 중인 방향만 진하게 (글자 기호 ▲▼↕는 크기·두께가 제각각이라 그림으로) */
+function SortIcon({ dir }: { dir: 'asc' | 'desc' | null }) {
+  return (
+    <svg className="sort-ico" viewBox="0 0 10 14" width="12" height="17" aria-hidden="true">
+      <path d="M5 1.5 8.5 5.5h-7z" className={dir === 'asc' ? 'on' : undefined} />
+      <path d="M5 12.5 1.5 8.5h7z" className={dir === 'desc' ? 'on' : undefined} />
+    </svg>
+  );
+}
+
 /** 처리 대상이 아닌 관측(통과 가능·원인 없음)은 상태 대신 '해당 없음' */
-const statusText = (o: Observation) => (!o.routes.length && o.action === '미처리' ? (effPass(o) === 'hold' ? '검수 필요' : '해당 없음') : o.action);
+const statusText = (o: Observation) => (o.analyzing ? '분석 대기' : !o.routes.length && o.action === '미처리' ? (effPass(o) === 'hold' ? '검수 필요' : '해당 없음') : o.action);
 
 export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast }: Props) {
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  /** 보고서는 목록 위에 큰 창으로 (페이지를 옮기지 않는다) */
+  const [reportOpen, setReportOpen] = useState(false);
   const [bulkDept, setBulkDept] = useState('');
   const [bulkAct, setBulkAct] = useState('');
   /** 휴대폰에서 기간·판정·처리 상태·부서·정렬을 펼쳤는지. 기본(최근 3일·전체·날짜순)과 다른 조건 수를 버튼에 보여 준다 */
@@ -70,7 +85,7 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
   };
 
   // 지표 카드: 기간·수집 경로·검색어까지만 걸린 관측 기준 (판정·처리 상태는 카드로 고른다)
-  const base = obs.filter((o) => inPeriod(o, f.period) && f.src.has(o.src) && matchesQuery(o, f.q));
+  const base = obs.filter((o) => inPeriod(o, f) && f.src.has(o.src) && matchesQuery(o, f.q));
   const allPass = f.pass.size === PASS_KEYS.length, allAct = f.act.size === ACTIONS.length;
   const only = <T,>(set: Set<T>, v: T) => set.size === 1 && set.has(v);
   const KPIS: { label: string; pred: (o: Observation) => boolean; tone: 'risk' | 'good' | 'neutral'; active: boolean; apply: Partial<Filters> }[] = [
@@ -87,7 +102,7 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
       <th scope="col" aria-sort={on ? (desc ? 'descending' : 'ascending') : 'none'}>
         <button type="button" className={`th-sort${on ? ' on' : ''}`}
           onClick={() => { if (on) setFlip((v) => !v); else { setFlip(false); setFilters({ ...f, sort: k }); } }}>
-          {label}<span aria-hidden="true">{on ? (desc ? '▼' : '▲') : '↕'}</span>
+          {label}<SortIcon dir={on ? (desc ? 'desc' : 'asc') : null} />
         </button>
       </th>
     );
@@ -95,11 +110,22 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
   const allOn = shown.length > 0 && shown.every((o) => picked.has(o.id));
   const togglePick = (id: string, on: boolean) => setPicked((p) => { const n = new Set(p); on ? n.add(id) : n.delete(id); return n; });
 
-  const copy = () => {
-    const tsv = ['촬영 시각\t수집 경로\t행정구역\t위치\t주소\tAI 판정\t위험도\t원인\t처리 유형\t지속성\t현장 확인\t담당 부서\t처리 상태\t관측 ID',
-      ...rows.map((o) => [fmtTime(o.t), `${SRC_LABEL[o.src]} ${o.dev}`, o.area ?? '', o.place, o.addr ?? '', PASS[effPass(o)].label, o.risk ?? '', o.causes.join(', '),
-        o.routes.map((r) => routeName(r.type)).join(', '), o.persist ? `${o.persist.kind} ${o.persist.n}회` : '', o.site ?? '', o.dept, statusText(o), o.id].join('\t'))].join('\n');
-    navigator.clipboard.writeText(tsv).then(() => toast(`${rows.length}건을 복사했습니다. 엑셀에 붙여넣으세요`), () => toast('복사하지 못했습니다'));
+  /** 표 내용 (엑셀 내려받기). 좌표·사진 주소는 담당자가 행정 시스템에 옮길 때 쓴다 */
+  const table = () => [
+    ['촬영 시각', '수집 경로', '행정구역', '위치', '주소', '위도', '경도', 'AI 판정', '위험도', '원인', '처리 유형', '지속성', '현장 확인', '담당 부서', '처리 상태', '사진', '관측 ID'],
+    ...rows.map((o) => [fmtTime(o.t), `${SRC_LABEL[o.src]} ${o.dev}`, o.area ?? '', o.place, o.addr ?? '', o.lat.toFixed(6), o.lng.toFixed(6), o.analyzing ? '분석 중' : PASS[effPass(o)].label, String(o.risk ?? ''), o.causes.join(', '),
+      o.routes.map((r) => routeName(r.type)).join(', '), o.persist ? `${o.persist.kind} ${o.persist.n}회` : '', o.site ?? '', o.dept, statusText(o), o.img?.original ?? '', o.id]),
+  ];
+  // 엑셀에서 바로 열리는 CSV (앞의 BOM이 있어야 엑셀이 한글을 UTF-8로 읽는다)
+  const download = () => {
+    const cell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+    const csv = '﻿' + table().map((r) => r.map(cell).join(',')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = `RoadPush_관측목록_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast(`${rows.length}건을 내려받았습니다`);
   };
   const applyBulk = () => {
     if (!bulkDept && !bulkAct) { toast('바꿀 항목을 고르세요'); return; }
@@ -110,7 +136,23 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
     setPicked(new Set()); setBulkDept(''); setBulkAct('');
   };
 
+  // 비었을 때: 조건 때문이면 조건을 풀게, 기간 안에 관측이 없으면 기간을 넓히게, 아예 없으면 어떻게 쌓이는지 안내
+  const narrowed = !!f.q.trim() || f.pass.size !== PASS_KEYS.length || f.act.size !== ACTIONS.length || !!f.dept;
+  const emptyState = base.length && narrowed ? (
+    <EmptyState kind="search" title="조건에 맞는 관측이 없습니다" desc="검색어나 판정·처리 상태·담당 부서 조건을 바꿔 보세요."
+      action={{ label: '조건 초기화', onClick: () => setFilters({ ...f, q: '', pass: new Set(PASS_KEYS), act: new Set(ACTIONS), dept: '' }) }} />
+  ) : f.q.trim() ? (
+    <EmptyState kind="search" title={`'${f.q.trim()}'에 맞는 관측이 없습니다`} desc="위치·행정구역·장비 이름이나 관측 ID로 찾아보세요."
+      action={{ label: '검색어 지우기', onClick: () => setFilters({ ...f, q: '' }) }} />
+  ) : f.period !== 'range' ? (
+    <EmptyState kind="empty" title={`${f.period === 'today' ? '오늘' : '최근 3일 동안'} 들어온 관측이 없습니다`} desc="기간을 넓히면 이전에 들어온 관측을 볼 수 있습니다."
+      action={{ label: '최근 3개월 보기', onClick: () => setFilters({ ...f, period: 'range', range: { from: addDays(ymd(DEMO_NOW), -(RANGE_MAX_DAYS - 1)), to: ymd(DEMO_NOW) } }) }} />
+  ) : (
+    <EmptyState kind="empty" title={`${f.range.from} ~ ${f.range.to} 동안 들어온 관측이 없습니다`} desc="기간을 바꿔 보세요. 최대 3개월까지 고를 수 있습니다." />
+  );
+
   return (
+    <>
     <section id="v-list" className="page">
       {/* 화면 제목은 위험 지도처럼 숨긴다 (위 탭이 화면 이름을 보여 준다). 화면 전환 시 포커스가 여기로 */}
       <h1 className="vh" tabIndex={-1}>관측 목록 · {PERIOD_LABEL[f.period]} {rows.length}건</h1>
@@ -129,7 +171,7 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
         <label className="vh" htmlFor="q">검색</label>
         <input className="krds-input small tb-q" id="q" type="search" placeholder="위치·행정구역·장비·관측 ID" value={f.q} onChange={(e) => setFilters({ ...f, q: e.target.value })} />
         <div id="tb-more" className={`tb-more${moreOpen ? ' open' : ''}`}>
-        <PeriodToggle value={f.period} onChange={(period) => setFilters({ ...f, period })} />
+        <PeriodToggle f={f} onChange={(p) => setFilters({ ...f, ...p })} />
         <label className="vh" htmlFor="fp">판정</label>
         <select className="krds-form-select small" id="fp" value={f.pass.size === 1 ? [...f.pass][0] : ''} onChange={(e) => setFilters({ ...f, pass: new Set(e.target.value ? [e.target.value as Pass] : PASS_KEYS) })}>
           <option value="">판정 전체</option>{PASS_KEYS.map((p) => <option key={p} value={p}>{PASS[p].label}</option>)}
@@ -149,7 +191,8 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
         </select>
         </div>
         <span className="grow" />
-        <button type="button" className="krds-btn small tertiary tb-copy" onClick={copy}>표 복사(엑셀용)</button>
+        <button type="button" className="krds-btn small tertiary tb-copy" onClick={() => setReportOpen(true)}>보고서 보기</button>
+        <button type="button" className="krds-btn small secondary tb-copy" onClick={download}>엑셀로 내려받기</button>
       </div>
       {picked.size > 0 && (
         <div className="bulk">
@@ -190,7 +233,7 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
                   <td className="c-area">{o.area ?? <span className="small">—</span>}</td>
                   {/* 행 전체 클릭(마우스)과 별도로, 키보드로도 열 수 있게 위치를 버튼으로 */}
                   <td className="c-place"><button type="button" className="row-open" title={o.place} onClick={(e) => { e.stopPropagation(); onOpen(o.id); }}>{o.place}</button></td>
-                  <td className="c-pass"><PassDot pass={effPass(o)} /></td>
+                  <td className="c-pass"><PassDot pass={o.analyzing ? 'analyzing' : effPass(o)} /></td>
                   <td className={`num c-risk${(o.risk ?? 0) >= 80 ? ' hi' : ''}`}>{o.risk ?? <span className="small">—</span>}</td>
                   <td className="c-route">{o.routes.length ? <RouteSummary routes={o.routes} /> : <span className="small">—</span>}</td>
                   <td className={`c-persist${trendOf(o) ? '' : ' empty'}`}><TrendBadge o={o} /></td>
@@ -203,7 +246,7 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
                   </td>
                 </tr>
               );
-            }) : <tr className="empty-row"><td colSpan={11} className="small" style={{ textAlign: 'center', padding: 32 }}>조건에 맞는 관측이 없습니다.<br />검색어나 조건을 바꿔 보세요.</td></tr>}
+            }) : <tr className="empty-row"><td colSpan={11}>{emptyState}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -221,5 +264,10 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
         <span>{cur} / {pages} 페이지</span>
       </div>
     </section>
+    {/* 관측 목록 표 규칙(#v-list)이 보고서 표에 먹지 않게 섹션 밖에 둔다 */}
+    <Modal open={reportOpen} size="xl" label="보고서" onClose={() => setReportOpen(false)}>
+      {reportOpen && <ReportView obs={obs} />}
+    </Modal>
+    </>
   );
 }

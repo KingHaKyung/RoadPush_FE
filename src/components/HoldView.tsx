@@ -5,6 +5,7 @@ import { compareObs, matchesQuery } from '../lib/segments';
 import { dayDelta, trend } from '../lib/stats';
 import type { Condition, Filters, Observation, ObservationPatch, Pass, SortKey } from '../types';
 import { KpiCard, SectionTitle } from './Dashboard';
+import { EmptyState } from './EmptyState';
 import { FrameView } from './FrameView';
 import { Modal } from './Modal';
 import { ObservationDetail } from './ObservationDetail';
@@ -27,7 +28,8 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
   /** 크게 보는 관측 */
   const [openId, setOpenId] = useState<string | null>(null);
   const closeModal = useCallback(() => setOpenId(null), []);
-  const all = obs.filter((o) => o.pass === 'hold' && matchesQuery(o, f.q)).sort(cmp);
+  // 첫 분석이 안 끝난 관측은 판단 유보가 아니라 관측 목록에서 '분석 중'으로 본다
+  const all = obs.filter((o) => o.pass === 'hold' && !o.analyzing && matchesQuery(o, f.q)).sort(cmp);
   const allOpen = all.filter((o) => !o.human);
   /** 지표 카드로 거르기: 검수 대기만 · 검수 완료만 · 재분석 요청만 (다시 누르면 해제) */
   const [view, setView] = useState<'' | 'open' | 'done' | 're'>('');
@@ -37,9 +39,11 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
   const done = view === '' || view === 'done' ? hold.filter((o) => o.human) : [];
 
   // 지표 카드 (검색어까지만 반영, 사유 선택과는 무관)
-  const waitPred = (o: Observation) => o.pass === 'hold' && !o.human && matchesQuery(o, f.q);
-  const oldest = allOpen.reduce<Observation | null>((a, o) => (!a || o.t < a.t ? o : a), null);
-  const waitH = oldest ? Math.floor((DEMO_NOW.getTime() - new Date(oldest.t).getTime()) / 36e5) : 0;
+  const waitPred = (o: Observation) => o.pass === 'hold' && !o.analyzing && !o.human && matchesQuery(o, f.q);
+  // 기다린 시간은 촬영 시각이 아니라 접수 시각부터 (앨범의 며칠 전 사진이 오래 기다린 것처럼 보이지 않게). 없으면 촬영 시각
+  const since = (o: Observation) => new Date(o.received ?? o.t).getTime();
+  const oldest = allOpen.reduce<Observation | null>((a, o) => (!a || since(o) < since(a) ? o : a), null);
+  const waitH = oldest ? Math.max(0, Math.floor((DEMO_NOW.getTime() - since(oldest)) / 36e5)) : 0;
   const reasons = (Object.keys(COND_LABEL) as Condition[]).map((k) => ({ key: k, label: COND_LABEL[k], n: allOpen.filter((o) => o.cond === k).length }))
     .filter((r) => r.n > 0).sort((a, b) => b.n - a.n);
 
@@ -51,13 +55,16 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
     </div>
   ) : (
     <div className="hacts">
-      {(['passable', 'narrowed', 'blocked'] as Pass[]).map((p) => (
-        <button key={p} type="button" className={`krds-btn small judge judge-${p}`}
-          onClick={() => { onUpdate(o.id, { human: p, review: '수정' }, `사람 판정: ${PASS[p].label}`); toast(`'${PASS[p].label}'(으)로 판정했습니다`); }}>
-          {PASS[p].label}
-        </button>
-      ))}
-      <button type="button" className="krds-btn small tertiary" onClick={() => { onUpdate(o.id, { reanalyze: !o.reanalyze }, o.reanalyze ? '재분석 요청 취소' : '재분석 요청'); toast(o.reanalyze ? '재분석 요청을 취소했습니다' : '재분석을 요청했습니다'); }}>
+      {/* 판정 셋은 붙인 한 묶음(고르는 것), 재분석 요청은 떨어진 글자 버튼(다른 일)으로 모양부터 나눈다 */}
+      <div className="judge-group" role="group" aria-label="사람 판정">
+        {(['passable', 'narrowed', 'blocked'] as Pass[]).map((p) => (
+          <button key={p} type="button" className={`judge judge-${p}`}
+            onClick={() => { onUpdate(o.id, { human: p, review: '수정' }, `사람 판정: ${PASS[p].label}`); toast(`'${PASS[p].label}'(으)로 판정했습니다`); }}>
+            {PASS[p].label}
+          </button>
+        ))}
+      </div>
+      <button type="button" className="krds-btn small text reanalyze" onClick={() => { onUpdate(o.id, { reanalyze: !o.reanalyze }, o.reanalyze ? '재분석 요청 취소' : '재분석 요청'); toast(o.reanalyze ? '재분석 요청을 취소했습니다' : '재분석을 요청했습니다'); }}>
         {o.reanalyze ? '재분석 대기 중' : '재분석 요청'}
       </button>
     </div>
@@ -104,9 +111,10 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
         </div>
         <h2 className="hr-title">유보 사유</h2>
         {reasons.length ? (
-          <div className="reason-chips" role="group" aria-label="유보 사유로 거르기 (다시 누르면 해제)">
-            {reasons.map((r) => (
-              <button key={r.key} type="button" className="reason-chip" aria-pressed={cond === r.key} onClick={() => setCond(cond === r.key ? '' : r.key)}>
+          // 기간 선택과 같은 구간 선택: 전체 또는 사유 하나
+          <div className="seg" role="radiogroup" aria-label="유보 사유로 거르기">
+            {[{ key: '' as const, label: '전체', n: allOpen.length }, ...reasons].map((r) => (
+              <button key={r.key || 'all'} type="button" role="radio" aria-checked={cond === r.key} onClick={() => setCond(r.key)}>
                 {r.label}<b>{r.n}</b>
               </button>
             ))}
@@ -115,7 +123,16 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
       </div>
       {view !== 'done' && <>
         <SectionTitle title={view === 're' ? '재분석 요청' : '검수 대기'} sub={`${open.length}건`} />
-        <div className="holdgrid">{open.length ? open.map(card) : <p className="small">{f.q.trim() ? `'${f.q.trim()}'에 맞는 판단 유보 건이 없습니다.` : view === 're' ? '재분석을 요청한 건이 없습니다.' : '검수할 판단 유보 건이 없습니다.'}</p>}</div>
+        <div className="holdgrid">{open.length ? open.map(card) : f.q.trim() ? (
+          <EmptyState kind="search" title={`'${f.q.trim()}'에 맞는 판단 유보 건이 없습니다`} desc="위치·행정구역·장비 이름이나 관측 ID로 찾아보세요."
+            action={{ label: '검색어 지우기', onClick: () => setFilters({ ...f, q: '' }) }} />
+        ) : cond ? (
+          <EmptyState kind="review" title={`'${COND_LABEL[cond]}' 사유로 남은 건이 없습니다`} action={{ label: '사유 선택 해제', onClick: () => setCond('') }} />
+        ) : view === 're' ? (
+          <EmptyState kind="review" title="재분석을 요청한 건이 없습니다" desc="검수 카드에서 '재분석 요청'을 누르면 여기에 모입니다." action={{ label: '검수 대기 전체 보기', onClick: () => setView('') }} />
+        ) : (
+          <EmptyState kind="review" title="검수할 판단 유보 건이 없습니다" desc="AI가 사진만으로 판정하지 못한 관측이 들어오면 여기에 모입니다." />
+        )}</div>
       </>}
       {(done.length > 0 || view === 'done') && <>
         <SectionTitle title="검수 완료" sub={`${done.length}건`} />

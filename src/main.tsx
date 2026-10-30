@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ReportApp } from './report/ReportApp';
 // KRDS HTML 컴포넌트 키트(krds-uiux): 토큰·공통 리셋·컴포넌트. 앱 스타일은 그 위에 레이아웃만 얹는다
 import 'krds-uiux/resources/css/common/common.css';
@@ -18,6 +19,6 @@ if (isReport) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {isReport ? <ReportApp /> : <App />}
+    <ErrorBoundary>{isReport ? <ReportApp /> : <App />}</ErrorBoundary>
   </StrictMode>,
 );

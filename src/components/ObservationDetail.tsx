@@ -57,7 +57,7 @@ export function ObservationDetail({ o, onUpdate, layout = 'panel', extra, relate
   return (
     <div className={`od od-${layout}`}>
       <div className="od-head">
-        <div className="rowx"><h3>{o.place}</h3><Pill pass={effPass(o)} /></div>
+        <div className="rowx"><h3>{o.place}</h3><Pill pass={o.analyzing ? 'analyzing' : effPass(o)} /></div>
         <p className="meta">
           <span>{fmtTime(o.t)}</span><span>{SRC_LABEL[o.src]} {o.dev}</span>
           {o.human && <span>AI 판정 {PASS[o.pass].label} → 사람 판정</span>}

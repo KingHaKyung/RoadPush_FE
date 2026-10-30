@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
+import { EmptyState, Loading } from './components/EmptyState';
 import { Modal } from './components/Modal';
+import { devFlag } from './lib/dev';
+import { defaultRange } from './lib/segments';
 import { ObservationDetail } from './components/ObservationDetail';
 import { Footer } from './components/Footer';
 import { Header } from './components/Header';
@@ -14,9 +17,10 @@ import type { Filters, Tab } from './types';
 const readTab = (): Tab => (['map', 'list', 'hold'].includes(location.hash.slice(1)) ? (location.hash.slice(1) as Tab) : 'map');
 
 export default function App() {
-  const { observations, update, error } = useObservations();
+  const { observations, update, error, loaded, retry } = useObservations();
+  if (devFlag('crash')) throw new Error('개발용 화면 오류 (?crash=1)');
   const [tab, setTab] = useState<Tab>(readTab);
-  const [filters, setFilters] = useState<Filters>({ period: '3d', src: new Set(['cctv', 'car', 'upload']), pass: new Set(PASS_KEYS), act: new Set(ACTIONS), q: '', sort: 'time', dept: '' });
+  const [filters, setFilters] = useState<Filters>({ period: '3d', range: defaultRange(), src: new Set(['cctv', 'car', 'upload']), pass: new Set(PASS_KEYS), act: new Set(ACTIONS), q: '', sort: 'time', dept: '' });
   const [selSeg, setSelSeg] = useState<string | null>(null);
   const [selObs, setSelObs] = useState<string | null>(null);
   const [focusKey, setFocusKey] = useState(0);
@@ -54,20 +58,31 @@ export default function App() {
     else if (!Array.isArray(ids) && log?.startsWith('메모')) toast('메모를 기록했습니다');
   }, [update, toast]);
 
-  const holdCount = observations.filter((o) => o.pass === 'hold' && !o.human).length;
+  const holdCount = observations.filter((o) => o.pass === 'hold' && !o.analyzing && !o.human).length;
   const closeDrawer = useCallback(() => setDrawerId(null), []);
   const drawerObs = drawerId ? observations.find((o) => o.id === drawerId) ?? null : null;
 
   return (
     <>
-      <Header tab={tab} holdCount={holdCount} error={error} />
+      {/* 한 번도 못 받았으면 본문에 크게 안내하므로 머리의 배지는 받은 뒤 끊겼을 때만 */}
+      <Header tab={tab} holdCount={holdCount} error={loaded ? error : null} />
       <main id="content" tabIndex={-1}>
-        {tab === 'map' && (
+        {/* 처음 받기 전: 관측이 '없다'고 잘못 보이지 않게 불러오는 중 / 연결 실패를 먼저 보여 준다 */}
+        {!loaded && (
+          <section className="page conn-state">
+            <h1 className="vh" tabIndex={-1}>{error ? '서버 연결 실패' : '관측을 불러오는 중'}</h1>
+            {error ? (
+              <EmptyState kind="server" title="관측 서버에 연결하지 못했습니다" desc="서버가 꺼져 있거나 점검 중일 수 있습니다. 잠시 뒤 다시 시도해 주세요. 계속되면 백엔드 담당자에게 알려 주세요."
+                action={{ label: '다시 시도', onClick: retry }} />
+            ) : <Loading label="관측을 불러오는 중입니다" />}
+          </section>
+        )}
+        {loaded && tab === 'map' && (
           <MapView obs={observations} filters={filters} setFilters={setFilters} selSeg={selSeg} selObs={selObs} focusKey={focusKey}
             selectSeg={selectSeg} setSelObs={setSelObs} onUpdate={onUpdate} />
         )}
-        {tab === 'list' && <ListView obs={observations} filters={filters} setFilters={setFilters} onOpen={setDrawerId} onUpdate={onUpdate} toast={toast} />}
-        {tab === 'hold' && <HoldView obs={observations} filters={filters} setFilters={setFilters} onUpdate={onUpdate} toast={toast} />}
+        {loaded && tab === 'list' && <ListView obs={observations} filters={filters} setFilters={setFilters} onOpen={setDrawerId} onUpdate={onUpdate} toast={toast} />}
+        {loaded && tab === 'hold' && <HoldView obs={observations} filters={filters} setFilters={setFilters} onUpdate={onUpdate} toast={toast} />}
       </main>
       <Footer />
       {/* 관측 목록에서 항목을 누르면 화면 가운데 큰 창으로 */}

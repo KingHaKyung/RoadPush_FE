@@ -23,6 +23,9 @@ export function requestText(o: Observation): string {
     `원인: ${o.causes.join(', ') || '없음'}`,
     p ? `감지 이력: 최근 7일 ${p.n}회 · ${p.days}일째 · ${p.kind}` : '',
     ...o.routes.map((r) => `안내(${r.cause} → ${r.dept}): ${r.guide}`),
+    // 받는 사람이 RoadPush에 들어오지 않아도 사진을 볼 수 있게
+    o.img ? `사진: ${o.img.original}` : '',
+    o.img?.overlay ? `분석 사진: ${o.img.overlay}` : '',
     `관측 ID: ${o.id} (원본·분석 화면은 RoadPush에서 확인)`,
   ].filter(Boolean).join('\n');
 }

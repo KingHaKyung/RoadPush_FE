@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { addNote, API_BASE, ApiError, cancelReanalyze, cancelReview, fetchObservations, reanalyze, review, setActions, toObservation, type AnalysisResponse } from '../api/client';
+import { addNote, ApiError, cancelReanalyze, cancelReview, fetchObservations, reanalyze, review, setActions, toObservation, USE_API, type AnalysisResponse } from '../api/client';
 import { SEG_OF } from '../data/nodelink';
 import { SAMPLE_OBSERVATIONS } from '../data/observations';
 import type { HistoryEntry, Observation, ObservationPatch, Persistence, SiteCheck } from '../types';
@@ -104,15 +104,25 @@ function useSampleObservations() {
     return null as string | null; // 백엔드 모드와 같은 형태 (안내 없음)
   }, []);
 
-  return { observations, update, error: null as string | null };
+  return { observations, update, error: null as string | null, loaded: true, retry: () => {} };
 }
 
 const POLL_MS = 5000;
+
+/** 주소 → '노량진동 205-46 부근' (행정구역의 동부터, 괄호 속 행정동은 뺀다) */
+function addrPlace(area?: string, addr?: string): string | undefined {
+  if (!addr) return undefined;
+  const dong = area?.split(' ').pop();
+  const from = dong ? addr.indexOf(dong) : -1;
+  return `${(from >= 0 ? addr.slice(from) : addr).replace(/\s*\(.*\)\s*$/, '')} 부근`;
+}
 
 /** 백엔드 연결: 관측을 API로 읽고, 처리 상태·사람 판정·재분석을 API로 보낸다 */
 function useApiObservations() {
   const [rows, setRows] = useState<AnalysisResponse[]>([]);
   const [error, setError] = useState<string | null>(null);
+  /** 한 번이라도 받았는지 (받기 전에는 '불러오는 중' 또는 '연결 실패' 화면) */
+  const [loaded, setLoaded] = useState(false);
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
 
@@ -122,8 +132,11 @@ function useApiObservations() {
       const next = await fetchObservations();
       if (animate) smooth(() => setRows(next)); else setRows(next);
       setError(null);
+      setLoaded(true);
     } catch (e) { setError((e as Error).message); }
   }, []);
+  /** '다시 시도': 오류를 지우고 곧바로 다시 읽는다 (그동안 '불러오는 중') */
+  const retry = useCallback(() => { setError(null); refresh(); }, [refresh]);
   // 처음 한 번 + 분석 대기 중인 관측이 결과로 바뀌도록 주기적으로 다시 읽는다
   useEffect(() => { refresh(); const t = setInterval(() => refresh(), POLL_MS); return () => clearInterval(t); }, [refresh]);
 
@@ -132,8 +145,10 @@ function useApiObservations() {
       .filter((a) => a.location) // 좌표가 없는 관측은 위치 확인 전까지 화면에서 뺀다
       .map((a) => {
         const { base, linkId, ...rest } = toObservation(a);
-        const seg = linkId && segById.has(linkId) ? linkId : nearestSeg(base.lat, base.lng);
-        return { ...base, ...rest, seg, place: segPlace(seg) } as Raw;
+        const known = !!linkId && segById.has(linkId);
+        const seg = known ? linkId : nearestSeg(base.lat, base.lng);
+        // 아는 링크면 도로 이름, 아니면(예시 지역 밖) 가장 가까운 예시 도로 이름이 엉뚱하게 붙지 않게 주소로
+        return { ...base, ...rest, seg, place: known ? segPlace(seg) : addrPlace(base.area, base.addr) ?? a.site_name } as Raw;
       })), [rows]);
 
   /** 백엔드에 반영한다. 지금은 할 수 없는 요청(409)이면 화면에 띄울 안내를 돌려준다 */
@@ -176,8 +191,8 @@ function useApiObservations() {
     return notice;
   }, [refresh]);
 
-  return { observations, update, error };
+  return { observations, update, error, loaded, retry };
 }
 
 /** 관측 목록과 사람 판단·처리 기록. VITE_API_BASE_URL이 있으면 백엔드, 없으면 예시 데이터 */
-export const useObservations = API_BASE ? useApiObservations : useSampleObservations;
+export const useObservations = USE_API ? useApiObservations : useSampleObservations;
