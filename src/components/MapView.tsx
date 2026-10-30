@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ACTIONS, DEPTS, OPEN_ACTIONS, CL_KIND, CL_PAVE, PASS, PASS_KEYS, PIN_COLOR, RANK, SORT_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
 import { dayDelta, kpiPred, siteCounts, trend as trendOf, type KpiKey } from '../lib/stats';
@@ -10,6 +10,7 @@ import { RiskMap } from './map/RiskMap';
 import { ObservationDetail } from './ObservationDetail';
 import { PeriodToggle } from './PeriodToggle';
 import { PassDot, Pill } from './Pill';
+import { TrendIcon } from './RouteBadge';
 
 interface Props {
   obs: Observation[];
@@ -43,12 +44,32 @@ const readFilterOpen = () => {
   try { return localStorage.getItem(FILTER_KEY) !== 'off'; } catch { return true; }
 };
 
+/**
+ * 오른쪽 패널 너비: 우선 점검 지점(목록)은 400, 지점·관측을 고르면(상세) 1.5배 600.
+ * 끌어서 바꾼 너비는 목록·상세 따로 기억한다
+ */
+const SIDE_KEY = 'roadpush-side-width';
+const SIDE_DEFAULT = { list: 400, detail: 600 };
+const SIDE_MIN = 320;
+/** 패널을 넓혀도 지도는 이만큼은 남긴다 */
+const MAP_MIN = 420;
+type SideW = typeof SIDE_DEFAULT;
+const readSideW = (): SideW => {
+  try { return { ...SIDE_DEFAULT, ...JSON.parse(localStorage.getItem(SIDE_KEY) ?? '{}') }; } catch { return SIDE_DEFAULT; }
+};
+
 export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey, selectSeg, setSelObs, onUpdate }: Props) {
   /** 우선 점검 지점 정렬 (관측 목록과 따로, 기본은 위험도순) */
   const [qSort, setQSort] = useState<SortKey>('risk');
   /** 목록에서 마우스를 올리거나 키보드로 고른 지점 (지도에서 강조) */
   const [hoverPin, setHoverPin] = useState<string | null>(null);
   const [filterOpen, setFilterOpen] = useState(readFilterOpen);
+  const [sideW, setSideW] = useState<SideW>(readSideW);
+  const [resizing, setResizing] = useState(false);
+  const sideRef = useRef<HTMLDivElement>(null);
+  // 창 크기가 바뀌면 패널 최대 너비(지도 최소 폭)를 다시 계산
+  const [, setVw] = useState(0);
+  useEffect(() => { const on = () => setVw(window.innerWidth); window.addEventListener('resize', on); return () => window.removeEventListener('resize', on); }, []);
   const showFilters = (on: boolean) => {
     setFilterOpen(on);
     if (isPhone()) return;
@@ -65,11 +86,11 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
     on ? s.add(v) : s.delete(v);
     setFilters({ ...f, [key]: s });
   };
-  const chk = (key: 'pass' | 'act' | 'src', v: string, label: string, n: number, dot?: string) => (
+  const chk = (key: 'pass' | 'act' | 'src', v: string, label: string, n: number) => (
     // KRDS 체크박스: input + label 형제 구조
     <div className="krds-form-check fcheck" key={v}>
       <input type="checkbox" id={`f-${key}-${v}`} checked={(f[key] as Set<string>).has(v)} onChange={(e) => toggle(key, v, e.target.checked)} />
-      <label htmlFor={`f-${key}-${v}`} className={n ? undefined : 'zero'}>{dot && <i className="fdot" style={{ background: dot }} aria-hidden="true" />}{label}<span className="cnt">{n}</span></label>
+      <label htmlFor={`f-${key}-${v}`} className={n ? undefined : 'zero'}>{label}<span className="cnt">{n}</span></label>
     </div>
   );
 
@@ -104,8 +125,30 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
   );
   const obsList = cur && <ObservationDetail key={cur.id} o={cur} onUpdate={(p, l) => onUpdate(cur.id, p, l)} related={related} />;
 
+  // 오른쪽 패널: 상세(지점·링크를 골랐을 때)면 넓게
+  const mode: keyof SideW = sg || selO ? 'detail' : 'list';
+  // 지도가 최소 MAP_MIN은 남게: 화면 폭 - 필터(열려 있으면) - 여백·간격 - 지도 최소 폭
+  const sideMax = () => Math.max(SIDE_MIN, Math.min(900, window.innerWidth - (filterOpen ? 272 + 16 : 0) - 48 - MAP_MIN));
+  const sideNow = Math.min(sideW[mode], sideMax());
+  const setW = (w: number) => setSideW((cur) => {
+    const next = { ...cur, [mode]: Math.round(Math.min(sideMax(), Math.max(SIDE_MIN, w))) };
+    try { localStorage.setItem(SIDE_KEY, JSON.stringify(next)); } catch { /* 저장 못 해도 화면은 그대로 */ }
+    return next;
+  });
+  /** 손잡이를 끌면 패널 오른쪽 끝에서 마우스까지가 새 너비 */
+  const startResize = (e: React.PointerEvent<HTMLDivElement>) => {
+    const right = sideRef.current?.getBoundingClientRect().right; if (right == null) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setResizing(true);
+    const move = (ev: PointerEvent) => setW(right - ev.clientX);
+    const up = () => { setResizing(false); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
   return (
-    <section id="v-map" className={filterOpen ? undefined : 'nofilter'} aria-label="위험 지도">
+    <section id="v-map" className={`${filterOpen ? '' : 'nofilter'}${resizing ? ' resizing' : ''}`.trim() || undefined} aria-label="위험 지도"
+      style={{ ['--side-w' as string]: `${sideNow}px` }}>
       {/* 화면 제목 (보이지 않게, 화면 전환 시 포커스가 여기로) */}
       <h1 className="vh" tabIndex={-1}>위험 지도</h1>
       <div className="kpis" aria-label="지점 현황">
@@ -128,8 +171,8 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
           <SectionTitle title="필터" sub={`${sites.length}곳`} />
           <button type="button" className="krds-btn xsmall text" onClick={() => showFilters(false)}>{isPhone() ? '닫기' : '접기'}</button>
         </div>
-        <div className="fgroup"><h2>기간</h2><PeriodToggle value={f.period} onChange={(period) => setFilters({ ...f, period })} /></div>
-        <div className="fgroup"><h2>판정</h2>{PASS_KEYS.map((p) => chk('pass', p, PASS[p].label, cnt(p), PIN_COLOR[p].fill))}</div>
+        <div className="fgroup"><h2>기간</h2><PeriodToggle f={f} onChange={(p) => setFilters({ ...f, ...p })} /></div>
+        <div className="fgroup"><h2>판정</h2>{PASS_KEYS.map((p) => chk('pass', p, PASS[p].label, cnt(p)))}</div>
         <div className="fgroup"><h2>처리 상태</h2>{ACTIONS.map((a: Action) => chk('act', a, a, sites.filter((s) => s.obs.action === a).length))}</div>
         <div className="fgroup">
           <h2><label htmlFor="f-dept">담당 부서</label></h2>
@@ -137,7 +180,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
             <option value="">전체 부서</option>{DEPTS.filter((d) => d !== '미배정').map((d) => <option key={d}>{d}</option>)}
           </select>
         </div>
-        <div className="fgroup"><h2>수집 경로</h2>{(['cctv', 'car', 'upload'] as Source[]).map((s) => chk('src', s, s === 'car' ? '불법주정차 단속차량' : SRC_LABEL[s], obs.filter((o) => o.src === s && inPeriod(o, f.period)).length))}</div>
+        <div className="fgroup"><h2>수집 경로</h2>{(['cctv', 'car', 'upload'] as Source[]).map((s) => chk('src', s, s === 'car' ? '불법주정차 단속차량' : SRC_LABEL[s], obs.filter((o) => o.src === s && inPeriod(o, f)).length))}</div>
         {sites.length > 0 && (
           <div className="fgroup">
             <h2>행정구역</h2>
@@ -156,7 +199,12 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
         </div>
       </div>
 
-      <div className="side">
+      {/* 패널 너비 조절: 끌기, 또는 포커스 후 ←→ (두 번 누르면 기본 너비) */}
+      <div className="side-resizer" role="separator" aria-orientation="vertical" aria-label="오른쪽 패널 너비 조절" tabIndex={0}
+        aria-valuenow={sideNow} aria-valuemin={SIDE_MIN} aria-valuemax={sideMax()}
+        onPointerDown={startResize} onDoubleClick={() => setW(SIDE_DEFAULT[mode])}
+        onKeyDown={(e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setW(sideNow + (e.key === 'ArrowLeft' ? 40 : -40)); } }} />
+      <div className="side" ref={sideRef}>
         {!sg && !selO ? (
           <div className="queue">
             <SectionTitle title="우선 점검 지점" sub={`${queue.length}곳`} />
@@ -179,7 +227,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
                   {p.obs.area && <span>{p.obs.area.split(' ').pop()}</span>}
                   <span>{fmtTime(p.obs.t)}</span>
                   {p.obs.action !== '미처리' && <span>{p.obs.action}</span>}
-                  {p.obs.persist?.kind === '상습' && <span className="hot">상습 {p.obs.persist.n}회</span>}
+                  {p.obs.persist?.kind === '상습' && <span className="hot"><TrendIcon tone="again" />상습 {p.obs.persist.n}회</span>}
                 </span>
               </button>
             )) : f.q.trim() ? (

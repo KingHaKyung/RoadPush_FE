@@ -109,6 +109,14 @@ function useSampleObservations() {
 
 const POLL_MS = 5000;
 
+/** 주소 → '노량진동 205-46 부근' (행정구역의 동부터, 괄호 속 행정동은 뺀다) */
+function addrPlace(area?: string, addr?: string): string | undefined {
+  if (!addr) return undefined;
+  const dong = area?.split(' ').pop();
+  const from = dong ? addr.indexOf(dong) : -1;
+  return `${(from >= 0 ? addr.slice(from) : addr).replace(/\s*\(.*\)\s*$/, '')} 부근`;
+}
+
 /** 백엔드 연결: 관측을 API로 읽고, 처리 상태·사람 판정·재분석을 API로 보낸다 */
 function useApiObservations() {
   const [rows, setRows] = useState<AnalysisResponse[]>([]);
@@ -137,8 +145,10 @@ function useApiObservations() {
       .filter((a) => a.location) // 좌표가 없는 관측은 위치 확인 전까지 화면에서 뺀다
       .map((a) => {
         const { base, linkId, ...rest } = toObservation(a);
-        const seg = linkId && segById.has(linkId) ? linkId : nearestSeg(base.lat, base.lng);
-        return { ...base, ...rest, seg, place: segPlace(seg) } as Raw;
+        const known = !!linkId && segById.has(linkId);
+        const seg = known ? linkId : nearestSeg(base.lat, base.lng);
+        // 아는 링크면 도로 이름, 아니면(예시 지역 밖) 가장 가까운 예시 도로 이름이 엉뚱하게 붙지 않게 주소로
+        return { ...base, ...rest, seg, place: known ? segPlace(seg) : addrPlace(base.area, base.addr) ?? a.site_name } as Raw;
       })), [rows]);
 
   /** 백엔드에 반영한다. 지금은 할 수 없는 요청(409)이면 화면에 띄울 안내를 돌려준다 */

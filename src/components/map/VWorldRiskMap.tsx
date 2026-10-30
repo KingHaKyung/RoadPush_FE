@@ -57,11 +57,6 @@ const road = (sg: Segment): Road => {
 /** 핀 말풍선·이름: 위치 · 판정 · 위험도 */
 const tipText = (p: Pin) => `${p.obs.place} · ${PASS[p.pass].label}${p.obs.risk == null ? '' : ` · 위험도 ${p.obs.risk}점`}${p.n > 1 ? ` · 관측 ${p.n}건` : ''}`;
 const tipHtml = (p: Pin) => `<b>${esc(p.obs.place)}</b><span>${PASS[p.pass].label}${p.obs.risk == null ? '' : ` · 위험도 ${p.obs.risk}점`}${p.n > 1 ? ` · 관측 ${p.n}건` : ''}</span>`;
-/** 핀이 화면 가장자리(말풍선·핀 머리가 잘리는 곳)에 있을 때만 지도를 옮긴다 */
-function panIfNeeded(m: L.Map, ll: L.LatLngExpression) {
-  const pt = m.latLngToContainerPoint(ll), size = m.getSize();
-  if (pt.x < 60 || pt.x > size.x - 60 || pt.y < 100 || pt.y > size.y - 40) m.panTo(ll);
-}
 
 /** 브이월드 프록시가 있으면 쓰는 지도: 표준노드링크 도로를 직접 그리고 브이월드는 옅은 배경으로 */
 export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin, selected, onSelect, focusKey, onError }: RiskMapProps & { tileBase: string; onError: (msg: string) => void }) {
@@ -265,9 +260,8 @@ export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin
       } as PinOptions);
       // 마우스를 올리거나 키보드로 선택하면 말풍선으로 빠르게 확인 (위치 · 판정 · 위험도)
       mk.bindTooltip(tipHtml(p), { direction: 'top', offset: [0, -34], className: 'pin-tip', opacity: 1 });
-      // 누르면 바로 오른쪽 상세. 지도는 핀이 가장자리에 걸릴 때만 옮긴다
+      // 누르면 바로 오른쪽 상세 (지도 가운데로 옮기는 건 아래 '고른 핀' 효과가 한다)
       const choose = (byKey: boolean) => {
-        panIfNeeded(m, [p.lat, p.lng]);
         pickPin.current(p);
         if (byKey) setTimeout(() => document.querySelector<HTMLElement>('.side .back')?.focus(), 50);
       };
@@ -311,12 +305,49 @@ export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin
     }
   }, [ready, selected, selectedPin, zoom, widths]);
 
-  // 선택한 핀(없으면 링크)으로 이동
+  // 오른쪽 패널 너비가 바뀌어 지도 칸이 줄거나 늘면 다시 맞춘다: 고른 핀이 있으면 그 핀을, 없으면 보던 가운데를 지도 가운데에 둔다
+  const selPinRef = useRef(selectedPin);
+  selPinRef.current = selectedPin;
+  useEffect(() => {
+    const m = map.current, box = el.current; if (!ready || !m || !box) return;
+    let raf = 0;
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const mk = selPinRef.current ? markers.current.get(selPinRef.current) : undefined;
+        if (mk) { m.invalidateSize({ pan: false }); m.panTo(mk.getLatLng(), { animate: false }); }
+        else m.invalidateSize({ pan: true, animate: false });
+      });
+    });
+    ro.observe(box);
+    return () => { ro.disconnect(); cancelAnimationFrame(raf); };
+  }, [ready]);
+
+  /**
+   * 고른 핀을 지도 가운데로. 묶음에 숨어 있으면 풀릴 만큼 확대하고, 지도 칸 크기를 다시 잰 뒤 맞춘다.
+   * 오른쪽 패널이 넓어지는 동안(0.22초)은 칸이 계속 바뀌므로 끝난 뒤 한 번 더
+   */
+  const centerTimer = useRef(0);
+  const centerOn = (mk: L.Marker) => {
+    const m = map.current; if (!m) return;
+    const center = () => { m.invalidateSize({ pan: false }); m.panTo(mk.getLatLng(), { animate: false }); };
+    clearTimeout(centerTimer.current);
+    clusterRef.current?.zoomToShowLayer(mk, () => { center(); centerTimer.current = window.setTimeout(center, 300); });
+  };
+  useEffect(() => () => clearTimeout(centerTimer.current), []);
+  // 핀을 고르면(지도·목록 어디서든) 그 핀을 지도 가운데로
+  useEffect(() => {
+    if (!ready || !selectedPin) return;
+    const mk = markers.current.get(selectedPin);
+    if (mk) centerOn(mk);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, selectedPin]);
+
+  // 선택한 핀(없으면 링크)으로 이동 (같은 것을 다시 골라도 focusKey로 다시 맞춘다)
   useEffect(() => {
     const m = map.current; if (!ready || !m) return;
     const mk = selectedPin ? markers.current.get(selectedPin) : undefined;
-    // 목록에서 골랐을 때: 묶음에 숨어 있으면 풀릴 만큼 확대하고, 화면 가장자리면 옮긴다
-    if (mk) { clusterRef.current?.zoomToShowLayer(mk, () => panIfNeeded(m, mk.getLatLng())); return; }
+    if (mk) { centerOn(mk); return; }
     const sg = selected ? segById.get(selected) : undefined;
     if (sg) m.fitBounds(L.latLngBounds(sg.ll), { padding: [120, 120], maxZoom: 18 });
     // eslint-disable-next-line react-hooks/exhaustive-deps

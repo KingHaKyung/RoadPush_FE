@@ -17,6 +17,8 @@ export interface AnalysisResponse {
   /** 사진 촬영 좌표 (없으면 null) */
   capture_location?: { latitude: number; longitude: number } | null;
   captured_at: string;
+  /** 서버 접수 시각 (응답에 아직 없을 수 있다) */
+  created_at?: string | null;
   processing_status: 'pending' | 'processing' | 'completed' | 'failed';
   passability: ApiPass | null;
   risk_score: number | null;
@@ -116,6 +118,8 @@ export function toObservation(a: AnalysisResponse) {
     area: a.area ?? undefined,
     addr: a.addr ?? undefined,
     t: a.captured_at,
+    // 접수 시각: created_at이 없으면 AI가 처음 남긴 이력(분석 완료) 시각으로 대신한다
+    received: a.created_at ?? a.history.find((h) => h.ai)?.t ?? undefined,
     pass: toPass(a.passability),
     risk: a.risk_score,
     occ: a.occupancy,

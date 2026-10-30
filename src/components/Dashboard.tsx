@@ -36,8 +36,10 @@ export function Sparkline({ values, label, w = 120, h = 40 }: { values: number[]
  * 지표 카드: 큰 숫자 · 이름 · 어제 대비 화살표 · 추세 곡선.
  * hero: 포인트 색으로 채운 대표 카드. tone: risk(늘면 빨강) · good(늘면 초록) · neutral. onClick이 있으면 눌러서 거르는 버튼
  */
-export function KpiCard({ label, value, unit, delta, values, note, tone = 'risk', hero, onClick, active }: {
-  label: string; value: number | string; unit?: string; delta?: { now: number; prev: number }; values?: number[];
+export function KpiCard({ label, value, unit, delta, deltaLabel = '어제 대비', values, note, tone = 'risk', hero, onClick, active }: {
+  label: string; value: number | string; unit?: string; delta?: { now: number; prev: number };
+  /** 증감 비교 대상 (보고서는 '이전 기간 대비') */
+  deltaLabel?: string; values?: number[];
   note?: string; tone?: 'risk' | 'good' | 'neutral'; hero?: boolean; onClick?: () => void; active?: boolean;
 }) {
   const d = delta ? delta.now - delta.prev : 0;
@@ -47,7 +49,7 @@ export function KpiCard({ label, value, unit, delta, values, note, tone = 'risk'
       <p className="kpi-v"><b>{value}</b>{unit && <span>{unit}</span>}</p>
       <h3>{label}</h3>
       {delta ? (
-        <p className={`kpi-d ${mood}`}>{d > 0 ? '↑' : d < 0 ? '↓' : '–'} {Math.abs(d)}건 <span>어제 대비</span></p>
+        <p className={`kpi-d ${mood}`}>{d > 0 ? '↑' : d < 0 ? '↓' : '–'} {Math.abs(d)}건 <span>{deltaLabel}</span></p>
       ) : note && <p className="kpi-d flat">{note}</p>}
       {values && values.some((v) => v > 0) && <div className="kpi-spark"><Sparkline values={values} label={`${label} 추세: ${values.join(', ')}건`} /></div>}
     </>

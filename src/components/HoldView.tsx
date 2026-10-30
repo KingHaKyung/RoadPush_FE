@@ -40,8 +40,10 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
 
   // 지표 카드 (검색어까지만 반영, 사유 선택과는 무관)
   const waitPred = (o: Observation) => o.pass === 'hold' && !o.analyzing && !o.human && matchesQuery(o, f.q);
-  const oldest = allOpen.reduce<Observation | null>((a, o) => (!a || o.t < a.t ? o : a), null);
-  const waitH = oldest ? Math.floor((DEMO_NOW.getTime() - new Date(oldest.t).getTime()) / 36e5) : 0;
+  // 기다린 시간은 촬영 시각이 아니라 접수 시각부터 (앨범의 며칠 전 사진이 오래 기다린 것처럼 보이지 않게). 없으면 촬영 시각
+  const since = (o: Observation) => new Date(o.received ?? o.t).getTime();
+  const oldest = allOpen.reduce<Observation | null>((a, o) => (!a || since(o) < since(a) ? o : a), null);
+  const waitH = oldest ? Math.max(0, Math.floor((DEMO_NOW.getTime() - since(oldest)) / 36e5)) : 0;
   const reasons = (Object.keys(COND_LABEL) as Condition[]).map((k) => ({ key: k, label: COND_LABEL[k], n: allOpen.filter((o) => o.cond === k).length }))
     .filter((r) => r.n > 0).sort((a, b) => b.n - a.n);
 
@@ -53,13 +55,16 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
     </div>
   ) : (
     <div className="hacts">
-      {(['passable', 'narrowed', 'blocked'] as Pass[]).map((p) => (
-        <button key={p} type="button" className={`krds-btn small judge judge-${p}`}
-          onClick={() => { onUpdate(o.id, { human: p, review: '수정' }, `사람 판정: ${PASS[p].label}`); toast(`'${PASS[p].label}'(으)로 판정했습니다`); }}>
-          {PASS[p].label}
-        </button>
-      ))}
-      <button type="button" className="krds-btn small tertiary" onClick={() => { onUpdate(o.id, { reanalyze: !o.reanalyze }, o.reanalyze ? '재분석 요청 취소' : '재분석 요청'); toast(o.reanalyze ? '재분석 요청을 취소했습니다' : '재분석을 요청했습니다'); }}>
+      {/* 판정 셋은 붙인 한 묶음(고르는 것), 재분석 요청은 떨어진 글자 버튼(다른 일)으로 모양부터 나눈다 */}
+      <div className="judge-group" role="group" aria-label="사람 판정">
+        {(['passable', 'narrowed', 'blocked'] as Pass[]).map((p) => (
+          <button key={p} type="button" className={`judge judge-${p}`}
+            onClick={() => { onUpdate(o.id, { human: p, review: '수정' }, `사람 판정: ${PASS[p].label}`); toast(`'${PASS[p].label}'(으)로 판정했습니다`); }}>
+            {PASS[p].label}
+          </button>
+        ))}
+      </div>
+      <button type="button" className="krds-btn small text reanalyze" onClick={() => { onUpdate(o.id, { reanalyze: !o.reanalyze }, o.reanalyze ? '재분석 요청 취소' : '재분석 요청'); toast(o.reanalyze ? '재분석 요청을 취소했습니다' : '재분석을 요청했습니다'); }}>
         {o.reanalyze ? '재분석 대기 중' : '재분석 요청'}
       </button>
     </div>
@@ -106,9 +111,10 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
         </div>
         <h2 className="hr-title">유보 사유</h2>
         {reasons.length ? (
-          <div className="reason-chips" role="group" aria-label="유보 사유로 거르기 (다시 누르면 해제)">
-            {reasons.map((r) => (
-              <button key={r.key} type="button" className="reason-chip" aria-pressed={cond === r.key} onClick={() => setCond(cond === r.key ? '' : r.key)}>
+          // 기간 선택과 같은 구간 선택: 전체 또는 사유 하나
+          <div className="seg" role="radiogroup" aria-label="유보 사유로 거르기">
+            {[{ key: '' as const, label: '전체', n: allOpen.length }, ...reasons].map((r) => (
+              <button key={r.key || 'all'} type="button" role="radio" aria-checked={cond === r.key} onClick={() => setCond(r.key)}>
                 {r.label}<b>{r.n}</b>
               </button>
             ))}
