@@ -9,6 +9,7 @@ import { ROAD_CLICK, SHOW_LANDMARKS } from '../../lib/features';
 import { loadIndex, loadTilesIn } from '../../lib/nodelinkTiles';
 import { PASS, PIN_COLOR } from '../../lib/constants';
 import { midOf, segById } from '../../lib/segments';
+import { tileUrl } from '../../lib/tiles';
 import type { Pass, Segment } from '../../types';
 import type { Pin, RiskMapProps } from './types';
 
@@ -91,7 +92,7 @@ export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin
     m.attributionControl.setPrefix(false);
     let failed = 0, loaded = 0;
     // 키는 개발 서버(프록시)가 붙인다. 브라우저에는 키가 없다
-    tilesRef.current = L.tileLayer(`${tileBase}/white/{z}/{y}/{x}.png`, {
+    tilesRef.current = L.tileLayer(tileUrl(tileBase, 'white/{z}/{y}/{x}.png'), {
       minZoom: 7, maxZoom: 19, attribution: '배경지도 © 브이월드(국토교통부)',
     })
       .on('tileload', () => { loaded++; })

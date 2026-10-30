@@ -46,6 +46,7 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background
 .top-in{display:flex;align-items:stretch;gap:28px;flex-wrap:wrap;min-height:var(--hdr)}
 .brand{display:flex;align-items:center;gap:10px}
 .brand b{font-size:var(--fs-xl);font-weight:700;letter-spacing:-.3px}
+.brand a,.sf-brand a{color:inherit;text-decoration:none}
 /* KRDS 탭 영역은 기본이 전체 폭이라, 헤더 안에서는 내용 폭으로 줄이고 탭 높이를 헤더에 맞춘다 */
 .top-nav{width:auto;flex:none;display:flex;align-items:stretch;margin:0;padding:0}
 .top-nav .tab{display:flex;height:auto;margin:0}
@@ -239,7 +240,46 @@ aside.drawer{position:fixed;top:0;right:0;bottom:0;width:min(460px,100%);backgro
 @media (prefers-reduced-motion:reduce){.toast,.toast.show{transition:none}}
 
 /* React 프로젝트 추가 */
-#root{min-height:100%}
+/* 내용이 짧아도 푸터는 화면 맨 아래에 (본문이 남는 높이를 채운다) */
+#root{min-height:100%;display:flex;flex-direction:column}
+#content{flex:1 0 auto;display:flex;flex-direction:column}
+#content > .page{flex:1 0 auto}
+/* 관측 목록: 결과가 적어도 표가 남는 높이를 채워 페이지 번호가 아래에 머문다 (데스크톱만. 휴대폰은 카드라 그대로) */
+/* 빈 화면 안내 (EmptyState): 그림 + 제목 + 설명 + 다음 행동 */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:40px 16px;text-align:center;white-space:normal}
+.empty-state svg{margin-bottom:8px}
+.empty-state .es-title{margin:0;font-size:var(--fs-l);font-weight:700;color:var(--ink)}
+.empty-state .es-desc{margin:0;font-size:var(--fs-m);color:var(--muted)}
+.empty-state .es-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:12px}
+.empty-state.sm{gap:4px;padding:12px}
+.empty-state.sm svg{margin-bottom:2px}
+.empty-state.sm .es-title{font-size:var(--fs-m)}
+.empty-state.sm .es-desc{font-size:var(--fs-s)}
+.empty-state.sm .es-actions{margin-top:8px}
+/* 처음 불러오는 중 · 서버 연결 실패 (본문 대신) / 화면 코드 오류 (페이지 전체) */
+.conn-state{justify-content:center}
+.crash{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+.spinner{width:36px;height:36px;margin-bottom:8px;border-radius:50%;border:4px solid var(--krds-color-light-primary-10);border-top-color:var(--accent);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spinner{animation-duration:2.4s}}
+/* 사진을 못 불러왔을 때 사진 칸 */
+.frame-broken{width:100%;height:100%;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:var(--sunk);color:var(--faint);font-size:var(--fs-s);text-align:center;padding:8px}
+.frame-broken.sm{min-height:0;font-size:var(--fs-xs)}
+/* 배경지도를 못 불러왔을 때 지도 칸을 채우는 안내 */
+.map-error{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--surface)}
+.map-note-btn{border:0;padding:0;background:none;font:inherit;color:var(--accent-text);text-decoration:underline;cursor:pointer}
+.holdgrid > .empty-state{grid-column:1/-1;background:var(--surface);border-radius:var(--r-l);box-shadow:var(--shadow)}
+/* 판단 유보가 비면 안내 칸이 남는 높이를 채운다 */
+#v-hold .holdgrid:has(> .empty-state){flex:1 0 auto}
+/* 위험 지도 우선 점검 지점이 비면 안내가 패널 남는 높이 가운데에 */
+.queue:has(> .empty-state){flex:1 0 auto;display:flex;flex-direction:column}
+.queue > .empty-state{flex:1 0 auto;padding:24px 8px}
+/* 결과가 없으면 표 자체를 늘려 안내 문구를 빈 칸 가운데에 (행이 있을 때 늘리면 행 높이가 벌어져서 빈 때만) */
+@media (min-width:761px){
+  #v-list .list-table{flex:1 0 auto;display:flex;flex-direction:column}
+  #v-list .list-table:has(.empty-row) table{flex:1 0 auto}
+  #v-list .list-table .empty-row td{border-bottom:0}
+}
 .vworld-map{position:absolute;inset:0;background:var(--block)}
 .vworld-map .leaflet-control-attribution{font-size:11px}
 .map-note{position:absolute;z-index:1000;right:12px;bottom:30px;background:var(--surface);border:0;box-shadow:var(--shadow);border-radius:var(--r-m);padding:4px 10px;font-size:var(--fs-s);color:var(--faint)}

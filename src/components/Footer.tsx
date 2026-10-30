@@ -3,7 +3,7 @@ export function Footer() {
   return (
     <footer className="site-foot">
       <div className="sf-top">
-        <p className="sf-brand"><b>RoadPush</b> 보행 통로 관제</p>
+        <p className="sf-brand"><a href="#map"><b>RoadPush</b></a> 보행 통로 관제</p>
         <nav className="sf-links" aria-label="바로가기">
           <a href="/report">시민 제보 화면</a>
         </nav>

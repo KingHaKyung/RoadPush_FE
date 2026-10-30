@@ -5,6 +5,7 @@ import { dayDelta, kpiPred, siteCounts, trend as trendOf, type KpiKey } from '..
 import { compareObs, effPass, inPeriod, nodeName, pinKey, pinsOf, segById } from '../lib/segments';
 import type { Action, Filters, Observation, ObservationPatch, Pass, Pin, SortKey, Source } from '../types';
 import { AreaBars, KpiCard, SectionTitle } from './Dashboard';
+import { EmptyState } from './EmptyState';
 import { RiskMap } from './map/RiskMap';
 import { ObservationDetail } from './ObservationDetail';
 import { PeriodToggle } from './PeriodToggle';
@@ -181,7 +182,12 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
                   {p.obs.persist?.kind === '상습' && <span className="hot">상습 {p.obs.persist.n}회</span>}
                 </span>
               </button>
-            )) : <p className="small">{f.q.trim() ? `'${f.q.trim()}'에 맞는 지점 없음` : '점검할 지점 없음'}</p>}
+            )) : f.q.trim() ? (
+              <EmptyState kind="search" title={`'${f.q.trim()}'에 맞는 지점이 없습니다`} desc="위치·행정구역·장비 이름으로 찾아보세요."
+                action={{ label: '검색어 지우기', onClick: () => setFilters({ ...f, q: '' }) }} />
+            ) : (
+              <EmptyState kind="map" title="지금 점검할 지점이 없습니다" desc="단절·좁아짐·판단 유보 지점 중 처리가 끝나지 않은 곳이 위험도순으로 올라옵니다." />
+            )}
           </div>
         ) : site && cur ? (
           <>

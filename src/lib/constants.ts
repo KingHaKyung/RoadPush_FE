@@ -1,4 +1,4 @@
-import { API_BASE } from '../api/client';
+import { USE_API } from '../api/client';
 import type { Action, Condition, Pass, Period, Route, RouteType, SortKey, Source } from '../types';
 
 /** 판정 이름과 글자색(app.css 판정 토큰). 지도 핀 색은 PIN_COLOR */
@@ -72,4 +72,4 @@ export const COND_LABEL: Record<Condition, string> = {
   occupancy_unverified: '장애물 범위 불확실', low_coverage: '측정 부족',
 };
 /** 기준 시각: 예시 데이터면 고정 시각, 백엔드에 연결하면 현재 시각 */
-export const DEMO_NOW = API_BASE ? new Date() : new Date('2026-10-18T14:40:00+09:00');
+export const DEMO_NOW = USE_API ? new Date() : new Date('2026-10-18T14:40:00+09:00');

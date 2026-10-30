@@ -3,6 +3,7 @@
  * 응답 형식은 마스터 문서 4.4 '공통 분석 응답 형식'(+ 화면용 필드)을 따른다. 백엔드 docs/API.md 참고.
  * VITE_API_BASE_URL이 비어 있으면 프론트는 예시 데이터를 쓴다.
  */
+import { devFlag } from '../lib/dev';
 import type { Action, Condition, HistoryEntry, ObservationBase, Pass, Review, Source } from '../types';
 
 type ApiPass = 'passable' | 'narrowed' | 'blocked' | 'undetermined';
@@ -35,12 +36,16 @@ export interface AnalysisResponse {
   causes: string[];
   uncertainty_code: string | null;
   failure_reason: string | null;
+  /** initial: 첫 분석 · reanalysis: 재분석 요청 */
+  analysis_trigger?: string | null;
   action: { action_id: string | null; state: string; label: string; dept: string | null };
   history: { t: string; txt: string; ai: boolean; by: string | null }[];
 }
 
 // 끝에 '/'를 붙여 적어도 '/api/v1//observations'가 되지 않게 뗀다
 export const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim().replace(/\/+$/, '') || undefined;
+/** 관제 화면이 백엔드를 쓰는지 (개발 중 ?api=sample 이면 주소가 있어도 예시 데이터) */
+export const USE_API = !!API_BASE && devFlag('api') !== 'sample';
 
 /** 응답 코드를 함께 담은 오류 (409 같은 '지금은 할 수 없음'을 연결 실패와 구분한다) */
 export class ApiError extends Error {
@@ -56,7 +61,12 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
-export const fetchObservations = () => call<AnalysisResponse[]>('/observations');
+export const fetchObservations = async () => {
+  // 개발 중 연결 실패·느린 응답 화면 확인용
+  if (devFlag('api') === 'fail') throw new ApiError('/observations 요청 실패 (개발용 ?api=fail)', 0);
+  if (devFlag('api') === 'slow') await new Promise((r) => setTimeout(r, 4000));
+  return call<AnalysisResponse[]>('/observations');
+};
 
 /** 화면의 처리 상태 이름 → 백엔드 코드 */
 export const ACTION_CODE: Record<Action, string> = {
@@ -115,6 +125,8 @@ export function toObservation(a: AnalysisResponse) {
     cond: COND.includes(a.uncertainty_code as Condition) ? (a.uncertainty_code as Condition) : undefined,
     action: a.action.label as Action,
     dept: a.action.dept ?? '미배정',
+    // 재분석 대기는 판단 유보의 '재분석 요청'에 남기고, 첫 분석 대기만 따로 뺀다
+    analyzing: waiting && a.analysis_trigger !== 'reanalysis',
     img: { original: a.images.original, thumb: a.images.thumbnail ?? undefined, overlay: a.images.obstacle_overlay ?? a.images.surface_overlay ?? undefined },
   };
   return {

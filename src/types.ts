@@ -87,6 +87,8 @@ export interface ObservationBase {
   cond?: Condition;
   action: Action;
   dept: string;
+  /** 첫 AI 분석이 아직 안 끝남 (판정이 없어 판단 유보·지도에서 빼고 목록에만 '분석 중'으로) */
+  analyzing?: boolean;
   /** 백엔드 연결 시: 원본 사진·분석 결과 이미지 주소 */
   img?: { original: string; thumb?: string; overlay?: string };
 }

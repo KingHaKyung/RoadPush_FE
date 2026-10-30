@@ -6,9 +6,9 @@ import { effPass } from './segments';
 export type KpiKey = 'blocked' | 'narrowed' | 'open' | 'hold';
 type Pred = (o: Observation) => boolean;
 
-/** 위험 지도 지표: 단절·좁아짐·판단 유보는 판정, 미처리 위험은 위험 판정 + 미처리 */
+/** 위험 지도 지표: 단절·좁아짐·판단 유보는 판정, 미처리 위험은 위험 판정 + 미처리. 분석 중(판정 없음)은 뺀다 */
 export const kpiPred = (k: KpiKey): Pred =>
-  k === 'open' ? (o) => effPass(o) !== 'passable' && o.action === '미처리' : (o) => effPass(o) === k;
+  k === 'open' ? (o) => !o.analyzing && effPass(o) !== 'passable' && o.action === '미처리' : (o) => !o.analyzing && effPass(o) === k;
 
 /** 지표에 들어가는 지점인지 (카드의 큰 숫자) */
 export const siteCounts = (k: KpiKey, s: Pin) =>

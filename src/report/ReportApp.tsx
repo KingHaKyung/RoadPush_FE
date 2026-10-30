@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { API_BASE } from '../api/client';
-import { addReportNote, inspectPhoto, siteCandidates, submitReport, type SiteCandidates, type Source } from './api';
+import { devFlag } from '../lib/dev';
+import { addReportNote, dongName, inspectPhoto, siteCandidates, submitReport, type SiteCandidates, type Source } from './api';
 import { LocationMap } from './LocationMap';
 import '../styles/report.css';
 
@@ -18,6 +19,9 @@ const kstText = (iso: string) => {
 };
 const sizeText = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)}MB` : `${Math.max(1, Math.round(b / 1024))}KB`);
 const NOTE_MAX = 300;
+/** 올릴 수 있는 사진: 백엔드(observations.py IMAGE_EXT)와 같은 확장자, 20MB 이하 */
+const PHOTO_EXT = ['.jpg', '.jpeg', '.png', '.webp'];
+const PHOTO_MAX = 20 * 1024 * 1024;
 const LOC_TEXT: Record<Source, string> = { exif: '사진에 담긴 위치', device: '현재 내 위치', manual: '지도에서 고른 위치' };
 const TIME_TEXT: Record<Source, string> = { exif: '사진에 담긴 시각', device: '사진 파일 시각', manual: '직접 고른 시각' };
 
@@ -26,6 +30,7 @@ const TIME_TEXT: Record<Source, string> = { exif: '사진에 담긴 시각', dev
  * 촬영 시각은 묻지 않는다: 사진 메타데이터(EXIF) 시각, 없으면 사진 파일 시각
  */
 export function ReportApp() {
+  if (devFlag('crash')) throw new Error('개발용 화면 오류 (?crash=1)');
   const uid = useId();
   const fileRef = useRef<HTMLInputElement>(null);
   const headRef = useRef<HTMLHeadingElement>(null);
@@ -39,6 +44,18 @@ export function ReportApp() {
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
   const [note, setNote] = useState('');
+  /** 고른 파일이 형식·크기가 맞지 않을 때 사진 칸 아래 안내 */
+  const [fileError, setFileError] = useState('');
+  /** 배경지도를 못 불러옴: 지도를 누르라는 안내를 숨긴다 (지도 칸에 따로 안내가 나온다) */
+  const [mapFailed, setMapFailed] = useState(false);
+  /** 휴대폰 인터넷 연결 (끊기면 보내기 전에 알린다). 개발 중 ?offline=1 이면 끊긴 것으로 */
+  const [online, setOnline] = useState(() => navigator.onLine && devFlag('offline') !== '1');
+  useEffect(() => {
+    if (devFlag('offline') === '1') return;
+    const on = () => setOnline(navigator.onLine);
+    window.addEventListener('online', on); window.addEventListener('offline', on);
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', on); };
+  }, []);
   const [done, setDone] = useState<{ id: string; at: string; noteLost?: boolean } | null>(null);
 
   useEffect(() => { document.title = '보행 통로 제보 · RoadPush'; }, []);
@@ -52,9 +69,28 @@ export function ReportApp() {
     const t = setTimeout(() => siteCandidates(loc.lat, loc.lng).then((c) => alive && setCands(c)).catch(() => alive && setCands(null)), 300);
     return () => { alive = false; clearTimeout(t); };
   }, [loc]);
+  // 위치 안내에 붙일 동 이름 (지도를 못 불러왔으면 브이월드도 안 될 테니 묻지 않는다)
+  const [dong, setDong] = useState<string | null>(null);
+  useEffect(() => {
+    setDong(null);
+    if (!loc || mapFailed) return;
+    let alive = true;
+    const t = setTimeout(() => dongName(loc.lat, loc.lng).then((d) => alive && setDong(d)), 300);
+    return () => { alive = false; clearTimeout(t); };
+  }, [loc, mapFailed]);
 
   const choose = async (f: File | undefined) => {
     if (!f) return;
+    // 백엔드가 받는 형식·크기만 (안 맞으면 고르지 않은 것으로 하고 사진 칸 아래에 알린다)
+    const dot = f.name.lastIndexOf('.');
+    const ext = dot > 0 ? f.name.slice(dot).toLowerCase() : '';
+    const now = `현재 사진: ${ext.slice(1).toUpperCase()} / ${sizeText(f.size)}`;
+    // 확장자가 없으면 형식을 알 수 없어 지원하지 않는 파일로 본다
+    const bad = !ext ? '지원하지 않는 파일입니다. JPG·PNG·WEBP 사진을 골라 주세요.'
+      : !PHOTO_EXT.includes(ext) ? `JPG·PNG·WEBP 사진만 올릴 수 있습니다 (${now}).`
+      : f.size > PHOTO_MAX ? `20MB 이하 사진만 올릴 수 있습니다 (${now}).` : '';
+    setFileError(bad);
+    if (bad) { if (fileRef.current) fileRef.current.value = ''; return; }
     setError(''); setFile(f); setPreview(URL.createObjectURL(f));
     // 사진 위치로 정한 곳은 새 사진에 맞춰 다시 정한다. 사용자가 고른 위치는 그대로 둔다
     if (loc?.source === 'exif') { setLoc(null); setCands(null); }
@@ -110,11 +146,12 @@ export function ReportApp() {
       const noteLost = text ? await addReportNote(r.observation_id, text).then(() => false, () => true) : false;
       setDone({ id: r.observation_id, at: kstIso(new Date()), noteLost });
     } catch (e) {
-      setError((e as Error).message);
+      // fetch가 응답 없이 실패하면(TypeError) 연결 문제. 영어 기본 문구 대신 안내
+      setError(e instanceof TypeError ? '서버에 연결하지 못해 보내지 못했습니다. 인터넷 연결을 확인하고 다시 눌러 주세요.' : (e as Error).message);
     } finally { setSending(false); }
   };
 
-  const restart = () => { removePhoto(); setLoc(null); setCands(null); setNote(''); setDone(null); setError(''); };
+  const restart = () => { removePhoto(); setLoc(null); setCands(null); setNote(''); setDone(null); setError(''); setFileError(''); };
   const missing = !file ? '사진을 골라 주세요.' : !loc ? '지도에서 막힌 곳을 골라 주세요.' : '';
 
   const header = <header className="rp-top"><b>RoadPush</b><span>보행 통로 제보</span></header>;
@@ -149,10 +186,12 @@ export function ReportApp() {
           <div>
             <p>길이 막힌 모습이 잘 보이게 찍거나 앨범에서 골라 주세요.</p>
             <p>사람 얼굴이나 차량 번호판이 크게 나오지 않게 찍어 주세요.</p>
+            <p>JPG·PNG·WEBP, 20MB 이하</p>
           </div>
         </div>
-        {/* capture를 넣지 않는다: 넣으면 휴대폰이 바로 카메라를 열어 앨범을 고를 수 없다. 없으면 촬영·앨범 중에서 고르게 한다 */}
-        <input ref={fileRef} id={`${uid}-file`} type="file" accept="image/*" hidden onChange={(e) => choose(e.target.files?.[0])} />
+        {/* capture를 넣지 않는다: 넣으면 휴대폰이 바로 카메라를 열어 앨범을 고를 수 없다. 없으면 촬영·앨범 중에서 고르게 한다.
+            형식을 jpeg·png·webp로 적으면 아이폰은 HEIC 사진을 JPEG로 바꿔 넘긴다 */}
+        <input ref={fileRef} id={`${uid}-file`} type="file" accept={`${PHOTO_EXT.join(',')},image/jpeg,image/png,image/webp`} hidden onChange={(e) => choose(e.target.files?.[0])} />
         {!file ? (
           <div className="file-upload">
             <div className="file-upload-btn-wrap">
@@ -178,20 +217,25 @@ export function ReportApp() {
             {taken && !reading && <p className="form-hint">촬영 시각 {kstText(taken.at)} ({TIME_TEXT[taken.source]})</p>}
           </div>
         )}
+        {fileError && <p className="form-hint-invalid" role="alert">{fileError}</p>}
       </section>
 
       <div className="fieldset">
         <div className="form-group">
           <div className="form-tit"><h2 className="rp-h2">막힌 곳 위치</h2></div>
           <div className="form-conts">
-            <LocationMap loc={loc} onPick={(lat, lng) => { setLoc({ lat, lng, source: 'manual' }); setError(''); }} />
+            <LocationMap loc={loc} onPick={(lat, lng) => { setLoc({ lat, lng, source: 'manual' }); setError(''); }} onFail={setMapFailed} />
             <button type="button" className="krds-btn medium secondary rp-locbtn" onClick={useMyLocation} disabled={locating}>
-              {locating ? '현재 위치를 찾는 중' : '현재 위치 사용'}
+              {locating ? '현재 위치를 찾는 중' : loc?.source === 'device' ? '현재 위치 수정' : '현재 위치 사용'}
             </button>
           </div>
-          <p className="form-hint">{loc
-            ? `${LOC_TEXT[loc.source]}${near ? ` (${near.site.name})` : road ? ` (${road} 부근)` : ''}입니다. 다르면 지도를 누르거나 핀을 옮겨 주세요.`
-            : '지도를 눌러 막힌 곳을 고르거나 현재 위치를 사용하세요.'}</p>
+          {/* 지도를 못 불러왔으면 지도를 누르라는 말은 빼고, 위치를 정했을 때 어디로 접수되는지만 */}
+          {/* 지도를 못 불러왔으면 좌표만, 지도가 있으면 동 이름까지 (지도를 누르라는 말은 지도가 있을 때만) */}
+          {/* 첫 줄은 위치, 둘째 줄은 고치는 방법 (동 이름을 아직 못 받았으면 좌표) */}
+          {mapFailed ? loc && <p className="form-hint">{LOC_TEXT[loc.source]}: {loc.lat.toFixed(5)}, {loc.lng.toFixed(5)}</p> : <p className="form-hint">{loc ? <>
+            {LOC_TEXT[loc.source]}: {dong ?? `${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}`}<br />
+            {LOC_TEXT[loc.source]}와 다르면 지도를 누르거나 핀을 옮겨 주세요.
+          </> : '지도를 눌러 막힌 곳을 고르거나 현재 위치를 사용하세요.'}</p>}
           {loc && near && <p className="form-hint-information">근처에 이미 제보된 지점이 있어 같은 곳으로 접수합니다.</p>}
         </div>
 
@@ -215,11 +259,12 @@ export function ReportApp() {
 
       <div className="btn-wrap rp-actions">
         {/* 빠진 것은 미리 띄우지 않고, 눌렀을 때 알린다 */}
-        <button type="button" className="krds-btn large primary" disabled={reading || sending || !API_BASE} onClick={() => (missing ? setError(missing) : send())}>
+        <button type="button" className="krds-btn large primary" disabled={reading || sending || !API_BASE || !online} onClick={() => (missing ? setError(missing) : send())}>
           {sending ? '보내는 중' : '제보하기'}
         </button>
       </div>
-      {!API_BASE && <p className="form-hint rp-missing">제보 서버에 연결되지 않아 지금은 접수할 수 없습니다.</p>}
+      {!API_BASE ? <p className="form-hint rp-missing">제보 서버에 연결되지 않아 지금은 접수할 수 없습니다.</p>
+        : !online && <p className="form-hint rp-missing" role="status">인터넷에 연결되어 있지 않습니다. 연결되면 바로 제보할 수 있습니다.</p>}
     </main>
   );
 }

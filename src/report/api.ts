@@ -28,6 +28,15 @@ export function siteCandidates(lat: number, lng: number) {
   return send<SiteCandidates>(`/sites/candidates?lat=${lat}&lng=${lng}`, { method: 'GET' });
 }
 
+/** 좌표 → '서울특별시 동작구 본동' (프론트 서버의 /api/address가 브이월드에 묻는다). 실패하면 null */
+export async function dongName(lat: number, lng: number): Promise<string | null> {
+  try {
+    const r = await fetch(`/api/address?lat=${lat.toFixed(5)}&lng=${lng.toFixed(5)}`);
+    if (!r.ok) return null;
+    return ((await r.json()) as { area: string } | null)?.area ?? null;
+  } catch { return null; }
+}
+
 export type Source = 'exif' | 'device' | 'manual';
 export interface ReportIn {
   file: File;

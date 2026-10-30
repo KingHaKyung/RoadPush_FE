@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv, type Plugin, type ProxyOptions } from 'vite';
 import react from '@vitejs/plugin-react';
 import basicSsl from '@vitejs/plugin-basic-ssl';
+import { dongOf } from './api/_address';
 import { roadTile } from './api/_roads';
 
 /**
@@ -46,6 +47,19 @@ function vworldRoads(key: string, domain: string): Plugin {
         try {
           if (!key) throw new Error('.env에 VWORLD_KEY가 없습니다');
           const body = await roadTile(t, key, domain);
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(body);
+        } catch (e) {
+          res.statusCode = e instanceof RangeError ? 400 : 502;
+          res.end((e as Error).message);
+        }
+      });
+      // /api/address?lat=&lng= : 좌표 → 동 단위 지역 이름 (배포 환경의 api/address.ts와 같은 동작)
+      server.middlewares.use('/api/address', async (req, res) => {
+        const p = new URL((req as { url?: string }).url ?? '', 'http://x').searchParams;
+        try {
+          if (!key) throw new Error('.env에 VWORLD_KEY가 없습니다');
+          const body = JSON.stringify(await dongOf(Number(p.get('lat')), Number(p.get('lng')), key, domain));
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
           res.end(body);
         } catch (e) {
