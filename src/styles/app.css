@@ -821,9 +821,21 @@ main h1:focus{outline:none;box-shadow:none}
 .report-view{display:flex;flex-direction:column;gap:20px}
 /* 큰 창 오른쪽 위 '닫기'와 겹치지 않게 */
 .modal-box .report-bar{margin:-6px 72px 0 0;padding:0;background:none;box-shadow:none;border-radius:0}
-/* 인쇄용 문서(보고서만 옮긴 iframe): 흰 바탕, 그림자 대신 얇은 테두리, 표·카드가 쪽 사이에서 잘리지 않게 */
-body.report-print{background:#fff;padding:0;margin:0}
-@page{margin:14mm}
+/*
+ * 인쇄용 문서(보고서만 옮긴 iframe): 흰 바탕, 그림자 대신 얇은 테두리, 표·카드가 쪽 사이에서 잘리지 않게.
+ * 인쇄는 종이 폭(A4 세로 약 690px)으로 다시 배치돼 태블릿·휴대폰 규칙(지표 2칸, 표 한 줄씩)이 걸린다.
+ * 큰 창과 같은 모양이 되게: 창 너비 기준으로 배치한 뒤 72%로 줄여 종이에 맞추고, 지표 4칸·표 두 칸을 고정한다
+ */
+body.report-print{background:#fff;padding:0;margin:0;zoom:.72}
+body.report-print .modal-box{width:auto;height:auto;max-height:none;overflow:visible;padding:0;border-radius:0;box-shadow:none;animation:none}
+body.report-print .report .kpis{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+body.report-print .report .kpi.hero{grid-column:auto}
+body.report-print .report .report-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+/* KRDS·목록 표가 좁은 화면에서 주는 너비(화면 폭 100vw·최소 너비)를 끈다: 인쇄에는 스크롤이 없어 칸 밖으로 잘린다 */
+body.report-print .report .krds-table-wrap{width:100%;overflow:visible}
+body.report-print .report .krds-table-wrap table{min-width:0;width:100%;table-layout:fixed}
+body.report-print .report .list-table th,body.report-print .report .list-table td{white-space:normal;word-break:keep-all}
+@page{size:A4 portrait;margin:12mm}
 @media print{
   .report-print .report .kpi,.report-print .report .list-table{box-shadow:none!important;border:1px solid var(--line)}
   .report-print .report section,.report-print .report .kpis,.report-print .report tr{break-inside:avoid}

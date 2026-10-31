@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ACTIONS, DEMO_NOW, DEPTS, OPEN_ACTIONS, CL_KIND, CL_PAVE, PASS, PASS_KEYS, PIN_COLOR, RANK, SORT_LABEL, SRC_LABEL } from '../lib/constants';
+import { ACTIONS, DEMO_NOW, DEPTS, SHOW_SOURCES, OPEN_ACTIONS, CL_KIND, CL_PAVE, PASS, PASS_KEYS, PIN_COLOR, RANK, SORT_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
 import { dayDelta, kpiPred, siteCounts, trend as trendOf, type KpiKey } from '../lib/stats';
 import { addDays, compareObs, effPass, nodeName, pinKey, pinsOf, RANGE_MAX_DAYS, segById, ymd } from '../lib/segments';
@@ -279,7 +279,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
             <option value="">전체 부서</option>{DEPTS.filter((d) => d !== '미배정').map((d) => <option key={d}>{d}</option>)}
           </select>
         </div>
-        <div className="fgroup"><h2>수집 경로</h2>{(['cctv', 'car', 'upload'] as Source[]).map((s) => chk('src', s, s === 'car' ? '불법주정차 단속차량' : SRC_LABEL[s], allSrc.filter((p) => p.obs.src === s).length))}</div>
+        {SHOW_SOURCES && <div className="fgroup"><h2>수집 경로</h2>{(['cctv', 'car', 'upload'] as Source[]).map((s) => chk('src', s, s === 'car' ? '불법주정차 단속차량' : SRC_LABEL[s], allSrc.filter((p) => p.obs.src === s).length))}</div>}
         {sites.length > 0 && (
           <div className="fgroup">
             <h2>행정구역</h2>

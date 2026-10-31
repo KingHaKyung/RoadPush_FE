@@ -46,10 +46,12 @@
 .rp-examples .ok .rp-ex-img{box-shadow:inset 0 0 0 1px var(--line)}
 .rp-examples .ng .rp-ex-img{opacity:.9}
 @container (min-width:440px){.rp-examples ul{grid-template-columns:repeat(4,minmax(0,1fr))}}
-.rp-ex-cap{display:flex;gap:6px;font-size:var(--fs-s);color:var(--muted)}
-.rp-ex-cap b{flex:none;font-weight:700}
-.rp-examples .ok .rp-ex-cap b{color:var(--pass)}
-.rp-examples .ng .rp-ex-cap b{color:var(--blocked)}
+/* 문구는 한 줄 (모두 일곱 글자). 혹시 넘치면 줄바꿈 대신 말줄임 */
+.rp-ex-cap{overflow:hidden;font-size:var(--fs-s);font-weight:600;color:var(--ink);text-align:center;white-space:nowrap;text-overflow:ellipsis}
+.rp-ex-fig{position:relative;display:block}
+.rp-ex-badge{position:absolute;left:6px;top:6px;padding:2px 8px;border-radius:999px;font-size:var(--fs-s);font-weight:700;line-height:1.5;color:#fff}
+.rp-examples .ok .rp-ex-badge{background:var(--pass)}
+.rp-examples .ng .rp-ex-badge{background:var(--blocked)}
 /* 사진 고르기: 촬영하기(가이드 촬영) · 앨범에서 고르기 */
 .rp-pick{display:flex;flex-wrap:wrap;gap:8px}
 .rp-pick .krds-btn{flex:1;justify-content:center;min-width:140px}

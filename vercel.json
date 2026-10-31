@@ -1,5 +1,11 @@
 {
   "regions": ["icn1"],
+  "images": {
+    "sizes": [480, 1280],
+    "formats": ["image/webp"],
+    "minimumCacheTTL": 2678400,
+    "remotePatterns": [{ "protocol": "https", "hostname": "desktop-han01.tail5a740d.ts.net", "pathname": "/files/**" }]
+  },
   "rewrites": [
     { "source": "/vworld/wmts/:path*", "destination": "/api/vworld?path=:path*" },
     { "source": "/dashboard", "destination": "/index.html" },

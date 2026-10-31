@@ -53,6 +53,8 @@ export const ROUTES: Record<string, Route> = {
 export const routesOf = (causes: string[]): Route[] => [...new Set(causes)].flatMap((c) => (ROUTES[c] ? [ROUTES[c]] : []));
 export const PERIOD_LABEL: Record<Period, string> = { today: '오늘', '3d': '최근 3일', range: '기간 선택' };
 export const SORT_LABEL: Record<SortKey, string> = { time: '최근 접수순', area: '행정구역 이름순', risk: '위험도순' };
+/** 수집 경로 필터를 보일지. MVP는 시민 제보(직접 업로드)만 받아 끈다. CCTV·단속차량을 붙이면 true */
+export const SHOW_SOURCES = false;
 export const SRC_LABEL: Record<Source, string> = { cctv: 'CCTV', car: '단속차량', upload: '직접 업로드' };
 export const RANK: Record<string, string> = {
   '101': '고속국도', '102': '도시고속도로', '103': '일반국도', '104': '특별·광역시도',

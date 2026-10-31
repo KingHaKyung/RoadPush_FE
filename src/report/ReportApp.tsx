@@ -23,12 +23,15 @@ const NOTE_MAX = 300;
 const PHOTO_EXT = ['.jpg', '.jpeg', '.png', '.webp'];
 const PHOTO_MAX = 20 * 1024 * 1024;
 const LOC_TEXT: Record<Source, string> = { exif: '사진에 담긴 위치', device: '현재 내 위치', manual: '지도에서 고른 위치' };
-/** 사진 예시 (public/report-examples, 긴 변 640px로 줄인 실제 사진). alt는 사진에 보이는 것을 적는다 */
+/**
+ * 사진 예시 (public/report-examples, 긴 변 640px로 줄인 실제 사진). alt는 사진에 보이는 것을 적는다.
+ * 문구는 휴대폰 두 칸 폭에서도 한 줄로 들어가게 모두 일곱 글자 (좋은 예·피할 예는 사진 위 표시로)
+ */
 const PHOTO_EXAMPLES = [
-  { ok: true, text: '서서 정면, 길 전체 폭이 보이게', src: '/report-examples/ok-1.jpg', alt: '보도가 뻗은 방향으로 서서 찍어 보도 양쪽 끝과 차도가 함께 보이는 사진' },
-  { ok: true, text: '막은 물건과 남은 길이 함께', src: '/report-examples/ok-2.jpg', alt: '공유 자전거가 보도와 점자블록 위에 서 있고 남은 길이 함께 보이는 사진' },
-  { ok: false, text: '너무 가까이 찍은 사진', src: '/report-examples/ng-1.jpg', alt: '자전거와 킥보드를 가까이서 비스듬히 찍어 길 전체 폭이 보이지 않는 사진' },
-  { ok: false, text: '어둡거나 흔들린 사진', src: '/report-examples/ng-2.jpg', alt: '밤에 흔들려 찍혀 보도가 번져 보이는 사진' },
+  { ok: true, text: '길 전체 폭 보이게', src: '/report-examples/ok-1.jpg', alt: '보도가 뻗은 방향으로 서서 찍어 보도 양쪽 끝과 차도가 함께 보이는 사진' },
+  { ok: true, text: '막은 것과 남은 길', src: '/report-examples/ok-2.jpg', alt: '골목길 정면 사진. 횡단보도 위에 승용차가 세워져 있고 옆으로 남은 길이 함께 보인다' },
+  { ok: false, text: '너무 가까이 찍음', src: '/report-examples/ng-1.jpg', alt: '자전거와 킥보드를 가까이서 비스듬히 찍어 길 전체 폭이 보이지 않는 사진' },
+  { ok: false, text: '어둡거나 흔들림', src: '/report-examples/ng-2.jpg', alt: '밤에 흔들려 찍혀 보도가 번져 보이는 사진' },
 ];
 const TIME_TEXT: Record<Source, string> = { exif: '사진에 담긴 시각', device: '사진 파일 시각', manual: '직접 고른 시각' };
 
@@ -252,8 +255,11 @@ export function ReportApp() {
           <ul>
             {PHOTO_EXAMPLES.map((e) => (
               <li key={e.text} className={e.ok ? 'ok' : 'ng'}>
-                <img className="rp-ex-img" src={e.src} alt={e.alt} width={480} height={640} loading="lazy" decoding="async" />
-                <span className="rp-ex-cap"><b>{e.ok ? '좋은 예' : '피할 예'}</b>{e.text}</span>
+                <span className="rp-ex-fig">
+                  <img className="rp-ex-img" src={e.src} alt={e.alt} width={480} height={640} loading="lazy" decoding="async" />
+                  <b className="rp-ex-badge">{e.ok ? '좋은 예' : '피할 예'}</b>
+                </span>
+                <span className="rp-ex-cap">{e.text}</span>
               </li>
             ))}
           </ul>
