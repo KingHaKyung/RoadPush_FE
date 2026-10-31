@@ -147,7 +147,7 @@ export function ObservationDetail({ o, onUpdate, layout = 'panel', extra, relate
         <dl className="od-stats">
           <div><dt>위험도</dt><dd>{o.risk == null ? <span className="na">산출 불가</span> : <>{o.risk}<small>/100</small></>}</dd></div>
           <div><dt>보도 점유</dt><dd>{o.occ == null ? <span className="na">측정 불가</span> : <>{o.occ}<small>%</small></>}</dd></div>
-          <div><dt>원인</dt><dd className="causes">{o.causes.length ? o.causes.join(', ') : <span className="na">없음</span>}</dd></div>
+          <div><dt>원인</dt><dd className="causes">{o.causes.length ? o.causes.join(', ') : <span className="na">없음</span>}{o.aiCauses && <small className="cause-fixed" title={`AI 원인: ${o.aiCauses.join(', ') || '없음'}`}>검수 수정</small>}</dd></div>
         </dl>
 
         {o.routes.length > 0 && (

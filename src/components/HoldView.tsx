@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { COND_LABEL, DEMO_NOW, PASS, SORT_LABEL, SRC_LABEL } from '../lib/constants';
+import { COND_LABEL, DEMO_NOW, PASS, ROUTES, SORT_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
 import { capturedEarlier, compareObs, matchesQuery } from '../lib/segments';
 import { dayDelta, trend } from '../lib/stats';
@@ -61,7 +61,7 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
   const actions = (o: Observation) => o.human ? (
     <div className="rowx">
       <span className="small">사람 판정 완료</span>
-      <button type="button" className="krds-btn small tertiary" onClick={() => { onUpdate(o.id, { human: null, review: '미검수' }, '사람 판정 취소'); toast('판정을 취소했습니다'); }}>판정 취소</button>
+      <button type="button" className="krds-btn small tertiary" onClick={() => { onUpdate(o.id, { human: null, humanCauses: null, review: '미검수' }, '사람 판정 취소'); toast('판정을 취소했습니다'); }}>판정 취소</button>
     </div>
   ) : (
     <div className="hacts">
@@ -80,6 +80,28 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
     </div>
   );
 
+  /** 단절·좁아짐으로 판정했으면 원인을 사람이 고른다 (AI가 원인을 못 찾았거나 틀린 경우). 여럿 고를 수 있다 */
+  const needsCause = (o: Observation) => o.human === 'blocked' || o.human === 'narrowed';
+  const causePicker = (o: Observation) => needsCause(o) && (
+    <div className="cause-pick" role="group" aria-label="원인 고르기">
+      <p className="cause-pick-label">원인 <span>{o.aiCauses ? `AI: ${o.aiCauses.join(', ') || '없음'} → 수정` : '여럿 고를 수 있습니다. 고르면 담당 부서·처리 유형이 정해집니다'}</span></p>
+      <div className="cause-chips">
+        {Object.keys(ROUTES).map((c) => {
+          const on = o.causes.includes(c);
+          return (
+            <button key={c} type="button" className={`cause-chip${on ? ' on' : ''}`} aria-pressed={on}
+              onClick={() => {
+                const next = on ? o.causes.filter((x) => x !== c) : [...o.causes, c];
+                // AI 원인과 같아지면 사람 수정은 지운다 (AI 원인 그대로)
+                const same = (o.aiCauses ?? o.causes).length === next.length && next.every((x) => (o.aiCauses ?? o.causes).includes(x));
+                onUpdate(o.id, { humanCauses: same && o.aiCauses ? null : next }, `원인 수정: ${next.join(', ') || '없음'}`);
+              }}>{c}</button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   const card = (o: Observation) => (
     // 카드를 누르면 큰 창 (버튼을 누른 경우는 제외)
     <article key={o.id} className={`hcard${o.human ? ' done' : ''}`} onClick={(e) => !(e.target as HTMLElement).closest('button') && setOpenId(o.id)}>
@@ -93,6 +115,7 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
         {/* 위험 지도 '우선 점검 지점'과 같은 정보 줄 */}
         <span className="sub">{o.area && <span>{o.area}</span>}<span>{SRC_LABEL[o.src]} {o.dev}</span><span>{capturedEarlier(o) ? `접수 ${fmtTime(o.received!)} · 촬영 ${fmtTime(o.t)}` : fmtTime(o.t)}</span></span>
         <div className="reason">{o.reason}</div>
+        {needsCause(o) && !o.causes.length && <span className="cause-need">원인 지정 필요 · 눌러서 고르기</span>}
       </div>
       {actions(o)}
     </article>
@@ -154,7 +177,7 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
       </>}
       <Modal open={!!opened} label={opened ? `${opened.place} 판단 유보 검수` : '판단 유보 검수'} onClose={closeModal}>
         {opened && <ObservationDetail key={opened.id} o={opened} layout="wide" onUpdate={(p, l) => onUpdate(opened.id, p, l)}
-          extra={<div className="hold-judge"><h4 className="sec">사람 판정</h4>{actions(opened)}</div>} />}
+          extra={<div className="hold-judge"><h4 className="sec">사람 판정</h4>{actions(opened)}{causePicker(opened)}</div>} />}
       </Modal>
     </section>
   );

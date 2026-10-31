@@ -118,6 +118,10 @@ export interface Observation extends ObservationBase {
   /** 같은 지점의 감지 이력. 원인이 없으면 null */
   persist: Persistence | null;
   human: Pass | null;
+  /** 사람이 검수하며 고친 원인 (없으면 AI 원인 그대로). 있으면 causes가 이 값이고, AI가 낸 원인은 aiCauses에 */
+  humanCauses?: string[] | null;
+  /** 사람이 원인을 고쳤을 때만: AI가 처음 낸 원인 */
+  aiCauses?: string[];
   review: Review;
   reanalyze: boolean;
   hist: HistoryEntry[];
@@ -137,7 +141,7 @@ export interface Pin {
 }
 
 /** 사람이 바꾼 값 (AI 결과와 따로 저장) */
-export type ObservationPatch = Partial<Pick<Observation, 'action' | 'dept' | 'human' | 'review' | 'reanalyze'>> & {
+export type ObservationPatch = Partial<Pick<Observation, 'action' | 'dept' | 'human' | 'humanCauses' | 'review' | 'reanalyze'>> & {
   /** 이력의 메모 고치기 (id: HistoryEntry.id) */
   memoEdit?: { id: string; text: string };
 };
