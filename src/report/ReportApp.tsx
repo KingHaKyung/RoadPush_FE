@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { API_BASE } from '../api/client';
 import { devFlag } from '../lib/dev';
 import { addReportNote, dongName, siteCandidates, submitReport, warmUp, type SiteCandidates, type Source } from './api';
+import { canUseGuideCamera, GuideCamera } from './GuideCamera';
 import { inKorea, loadImage, readPhotoMeta, shrinkPhoto } from './photo';
 import { LocationMap } from './LocationMap';
 import '../styles/report.css';
@@ -24,7 +25,7 @@ const PHOTO_MAX = 20 * 1024 * 1024;
 const LOC_TEXT: Record<Source, string> = { exif: '사진에 담긴 위치', device: '현재 내 위치', manual: '지도에서 고른 위치' };
 /** 사진 예시 칸 (사진은 준비되면 넣는다) */
 const PHOTO_EXAMPLES = [
-  { ok: true, text: '보도 폭 전체가 보이게' },
+  { ok: true, text: '서서 정면, 길 전체 폭이 보이게' },
   { ok: true, text: '막은 물건과 남은 길이 함께' },
   { ok: false, text: '너무 가까이 찍은 사진' },
   { ok: false, text: '어둡거나 흔들린 사진' },
@@ -42,6 +43,9 @@ export function ReportApp() {
   if (devFlag('crash')) throw new Error('개발용 화면 오류 (?crash=1)');
   const uid = useId();
   const fileRef = useRef<HTMLInputElement>(null);
+  const camRef = useRef<HTMLInputElement>(null);
+  /** 가이드 촬영 화면을 열었는지 */
+  const [camOpen, setCamOpen] = useState(false);
   const headRef = useRef<HTMLHeadingElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState('');
@@ -225,6 +229,10 @@ export function ReportApp() {
 
   return (
     <main className="rp">
+      {camOpen && (
+        <GuideCamera onShot={(f) => { setCamOpen(false); choose(f); }} onClose={() => setCamOpen(false)}
+          onFallback={() => { setCamOpen(false); camRef.current?.click(); }} />
+      )}
       {header}
       <div className="page-title-wrap"><h1 className="h-tit" ref={headRef} tabIndex={-1}>막힌 보도 제보</h1></div>
       <p className="rp-lead">사진과 위치를 보내 주시면 담당 부서에 전달합니다.</p>
@@ -233,7 +241,7 @@ export function ReportApp() {
         <div className="file-head">
           <h2 className="tit" id={`${uid}-photo`}>막힌 보도 사진</h2>
           <div>
-            <p>길이 막힌 모습이 잘 보이게 찍거나 앨범에서 골라 주세요.</p>
+            <p>보도가 뻗은 방향을 보고 서서, 길 전체 폭과 막은 물건이 함께 보이게 찍어 주세요.</p>
             <p>사람 얼굴이나 차량 번호판이 크게 나오지 않게 찍어 주세요.</p>
             <p>JPG·PNG·WEBP, 20MB 이하</p>
           </div>
@@ -253,11 +261,16 @@ export function ReportApp() {
         {/* capture를 넣지 않는다: 넣으면 휴대폰이 바로 카메라를 열어 앨범을 고를 수 없다. 없으면 촬영·앨범 중에서 고르게 한다.
             형식을 jpeg·png·webp로 적으면 아이폰은 HEIC 사진을 JPEG로 바꿔 넘긴다 */}
         <input ref={fileRef} id={`${uid}-file`} type="file" accept={`${PHOTO_EXT.join(',')},image/jpeg,image/png,image/webp`} hidden onChange={(e) => choose(e.target.files?.[0])} />
+        {/* 가이드 촬영을 못 쓰는 환경(http·미지원 브라우저·카메라 거절)에서 바로 휴대폰 기본 카메라를 여는 입력 */}
+        <input ref={camRef} id={`${uid}-cam`} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden onChange={(e) => { choose(e.target.files?.[0]); e.target.value = ''; }} />
         {!file ? (
           <div className="file-upload">
-            <div className="file-upload-btn-wrap">
+            <div className="file-upload-btn-wrap rp-pick">
+              <button type="button" className="krds-btn medium primary" onClick={() => (canUseGuideCamera() ? setCamOpen(true) : camRef.current?.click())}>
+                <i className="svg-icon ico-upload" aria-hidden="true" />촬영하기
+              </button>
               {/* KRDS 예시는 label 안에 button을 두지만, 그러면 파일 선택이 열리지 않는 브라우저가 있어 label에 버튼 모양을 입힌다 */}
-              <label htmlFor={`${uid}-file`} className="krds-btn medium"><i className="svg-icon ico-upload" aria-hidden="true" />사진 올리기</label>
+              <label htmlFor={`${uid}-file`} className="krds-btn medium secondary">앨범에서 고르기</label>
             </div>
           </div>
         ) : (
