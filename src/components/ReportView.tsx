@@ -127,7 +127,8 @@ export function ReportView({ obs }: { obs: Observation[] }) {
     const styles = [...document.querySelectorAll('style, link[rel="stylesheet"]')].map((n) => n.outerHTML).join('');
     doc.open();
     doc.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title><base href="${location.origin}/">${styles}</head>`
-      + `<body class="report-print">${src.outerHTML}</body></html>`);
+      // 큰 창과 같은 틀(modal-box) 안에 넣어 창 안에서와 같은 글자 크기·규칙을 받게 한다
+      + `<body class="report-print"><div class="modal-box modal-xl">${src.outerHTML}</div></body></html>`);
     doc.close();
     // 글꼴·스타일을 다 읽은 뒤 인쇄하고, 인쇄 창을 닫으면 틀을 치운다
     const go = () => { win.focus(); win.print(); };

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ACTIONS, DEMO_NOW, DEPTS, PASS, PASS_KEYS, PERIOD_LABEL, routeName, SORT_LABEL, SRC_LABEL } from '../lib/constants';
+import { ACTIONS, DEMO_NOW, DEPTS, PASS, PASS_KEYS, PERIOD_LABEL, routeName, SORT_LABEL, SRC_LABEL, SHOW_SOURCES } from '../lib/constants';
 import { fmtTime } from '../lib/format';
 import { addDays, capturedEarlier, compareObs, effPass, inPeriod, matchesFilters, matchesQuery, RANGE_MAX_DAYS, ymd } from '../lib/segments';
 import { dayDelta, trend } from '../lib/stats';
@@ -114,8 +114,8 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
 
   /** 표 내용 (엑셀 내려받기). 좌표·사진 주소는 담당자가 행정 시스템에 옮길 때 쓴다 */
   const table = () => [
-    ['접수 시각', '촬영 시각', '수집 경로', '행정구역', '위치', '주소', '위도', '경도', 'AI 판정', '검수 판정', '위험도', '원인', '처리 유형', '지속성', '현장 확인', '담당 부서', '처리 상태', '사진', '관측 ID'],
-    ...rows.map((o) => [fmtTime(o.received ?? o.t), fmtTime(o.t), `${SRC_LABEL[o.src]} ${o.dev}`, o.area ?? '', o.place, o.addr ?? '', o.lat.toFixed(6), o.lng.toFixed(6), o.analyzing ? '분석 중' : PASS[o.pass].label, o.human ? PASS[o.human].label : '', String(o.risk ?? ''), o.causes.join(', '),
+    ['접수 시각', '촬영 시각', ...(SHOW_SOURCES ? ['수집 경로'] : []), '행정구역', '위치', '주소', '위도', '경도', 'AI 판정', '검수 판정', '위험도', '원인', '처리 유형', '지속성', '현장 확인', '담당 부서', '처리 상태', '사진', '관측 ID'],
+    ...rows.map((o) => [fmtTime(o.received ?? o.t), fmtTime(o.t), ...(SHOW_SOURCES ? [`${SRC_LABEL[o.src]} ${o.dev}`] : []), o.area ?? '', o.place, o.addr ?? '', o.lat.toFixed(6), o.lng.toFixed(6), o.analyzing ? '분석 중' : PASS[o.pass].label, o.human ? PASS[o.human].label : '', String(o.risk ?? ''), o.causes.join(', '),
       o.routes.map((r) => routeName(r.type)).join(', '), o.persist ? `${o.persist.kind} ${o.persist.n}회` : '', o.site ?? '', o.dept, statusText(o), o.img?.original ?? '', o.id]),
   ];
   // 엑셀에서 바로 열리는 CSV (앞의 BOM이 있어야 엑셀이 한글을 UTF-8로 읽는다)
@@ -219,7 +219,7 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
           <caption>관측 목록</caption>
           {/* 칸 너비를 고정해 정렬·페이지를 바꿔도 표가 흔들리지 않게 (위치 칸이 남는 폭을 쓴다) */}
           <colgroup>
-            <col className="w-cb" /><col className="w-time" /><col className="w-src" /><col className="w-area" /><col />
+            <col className="w-cb" /><col className="w-time" />{SHOW_SOURCES && <col className="w-src" />}<col className="w-area" /><col />
             <col className="w-pass" /><col className="w-risk" /><col className="w-route" /><col className="w-persist" />
             <col className="w-dept" /><col className="w-act" />
           </colgroup>
@@ -227,7 +227,7 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
             <tr>
               <th scope="col" className="cb"><div className="krds-form-check"><input type="checkbox" id="pick-all" checked={allOn} onChange={(e) => setPicked(e.target.checked ? new Set(shown.map((o) => o.id)) : new Set())} /><label htmlFor="pick-all"><span className="vh">이 페이지 모두 선택</span></label></div></th>
               {sortTh('time', '접수 시각')}
-              <th scope="col">수집 경로</th>{sortTh('area', '행정구역')}<th scope="col">위치</th><th scope="col" title="사람이 검수해 고친 판정이 있으면 그 판정 ('검수' 표시)">판정</th>
+              {SHOW_SOURCES && <th scope="col">수집 경로</th>}{sortTh('area', '행정구역')}<th scope="col">위치</th><th scope="col" title="사람이 검수해 고친 판정이 있으면 그 판정 ('검수' 표시)">판정</th>
               {sortTh('risk', '위험도')}<th scope="col">처리 유형</th>
               <th scope="col" title="같은 지점의 최근 관측으로 본 흐름: 해소됨 · 상습(다시 나타남) · 지속(계속 그대로) · 확인 대기(요청 후 다음 관측 대기)">현장 추이</th>
               <th scope="col">담당 부서</th><th scope="col">처리 상태</th>
@@ -239,7 +239,7 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
                 <tr key={o.id} className={picked.has(o.id) ? 'on' : ''} onClick={() => onOpen(o.id)}>
                   <td className="cb" onClick={(e) => e.stopPropagation()}><div className="krds-form-check"><input type="checkbox" id={`pick-${o.id}`} checked={picked.has(o.id)} onChange={(e) => togglePick(o.id, e.target.checked)} /><label htmlFor={`pick-${o.id}`}><span className="vh">{o.place} 선택</span></label></div></td>
                   <td className="c-time">{fmtTime(o.received ?? o.t)}{capturedEarlier(o) && <span className="t-shot">촬영 {fmtTime(o.t)}</span>}</td>
-                  <td className="c-src">{SRC_LABEL[o.src]}</td>
+                  {SHOW_SOURCES && <td className="c-src">{SRC_LABEL[o.src]}</td>}
                   <td className="c-area">{o.area ?? <span className="small">—</span>}</td>
                   {/* 행 전체 클릭(마우스)과 별도로, 키보드로도 열 수 있게 위치를 버튼으로 */}
                   <td className="c-place"><button type="button" className="row-open" title={o.place} onClick={(e) => { e.stopPropagation(); onOpen(o.id); }}>{o.place}</button></td>
@@ -262,7 +262,7 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
                   </td>
                 </tr>
               );
-            }) : <tr className="empty-row"><td colSpan={11}>{emptyState}</td></tr>}
+            }) : <tr className="empty-row"><td colSpan={SHOW_SOURCES ? 11 : 10}>{emptyState}</td></tr>}
           </tbody>
         </table>
       </div>

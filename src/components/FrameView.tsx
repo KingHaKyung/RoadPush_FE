@@ -3,6 +3,7 @@ import { devFlag } from '../lib/dev';
 import type { Observation } from '../types';
 import { SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
+import { IMG_W, sized } from '../lib/image';
 
 /**
  * 촬영 화면 자리 표시용 그림. 백엔드가 붙으면 원본 사진·overlay 이미지로 바꾼다.
@@ -14,11 +15,16 @@ const IMG_FAIL = devFlag('img') === 'fail' ? 'http://127.0.0.1:1/x.jpg' : null;
 export function FrameView({ o, overlay, thumb }: { o: Observation; overlay: boolean; thumb?: boolean }) {
   // 사진을 못 받으면(파일 없음·서버 꺼짐) 깨진 그림 대신 안내. 보던 사진(원본/분석)이 바뀌면 다시 시도
   const [broken, setBroken] = useState<string | null>(null);
+  /** 줄인 사진을 못 받으면 원본으로 한 번 더 (원본까지 못 받으면 broken) */
+  const [rawFor, setRawFor] = useState<string | null>(null);
   const img = IMG_FAIL ? { original: IMG_FAIL, thumb: IMG_FAIL, overlay: IMG_FAIL } : o.img;
   // 백엔드에 연결되면 실제 사진을 보여 준다 ('분석'이면 overlay, 없으면 원본)
   if (img) {
-    const src = overlay && img.overlay ? img.overlay : thumb ? img.thumb ?? img.original : img.original;
-    if (broken === src) return (
+    const raw = overlay && img.overlay ? img.overlay : thumb ? img.thumb ?? img.original : img.original;
+    // 카드는 480px, 큰 창은 1280px로 줄여 받는다 (원본은 수 MB). 줄인 사진이 안 오면 원본으로
+    const small = sized(raw, thumb ? IMG_W.thumb : IMG_W.view);
+    const src = rawFor === raw ? raw : small;
+    if (broken === raw) return (
       <div className={`frame-broken${thumb ? ' sm' : ''}`} role="img" aria-label={`${o.place} 사진을 불러오지 못했습니다`}>
         {/* 옅은 사진 틀 + 오른쪽 아래 느낌표 (경고색 대신 사진 틀과 같은 인디고 톤) */}
         <svg viewBox="0 0 48 40" width={thumb ? 40 : 56} height={thumb ? 33 : 47} aria-hidden="true">
@@ -33,7 +39,7 @@ export function FrameView({ o, overlay, thumb }: { o: Observation; overlay: bool
       </div>
     );
     // 썸네일은 화면에 들어올 때 받는다 (원본이 수 MB라 카드가 많으면 한꺼번에 받으면 느리다)
-    return <img src={src} alt={`${o.place} ${overlay ? '분석 결과' : '원본'} 사진`} loading={thumb ? 'lazy' : undefined} decoding="async" onError={() => setBroken(src)}
+    return <img src={src} alt={`${o.place} ${overlay ? '분석 결과' : '원본'} 사진`} loading={thumb ? 'lazy' : undefined} decoding="async" onError={() => (src !== raw ? setRawFor(raw) : setBroken(raw))}
       style={{ width: '100%', height: '100%', objectFit: thumb ? 'cover' : 'contain', background: '#000' }} />;
   }
   const W = 320, H = 190, top = 88, bot = H;

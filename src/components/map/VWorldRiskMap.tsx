@@ -89,7 +89,8 @@ export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin
     let failed = 0, loaded = 0;
     // 키는 개발 서버(프록시)가 붙인다. 브라우저에는 키가 없다
     tilesRef.current = L.tileLayer(tileUrl(tileBase, 'white/{z}/{y}/{x}.png'), {
-      minZoom: MAP_ZOOM.min, maxZoom: MAP_ZOOM.max, attribution: '배경지도 © 브이월드(국토교통부)',
+      // 흰 배경지도(white)는 18단계까지만 있다 (19는 이미지 대신 오류 문서가 와서 화면이 비었다). 19에서는 18단계 타일을 키워 쓴다
+      minZoom: MAP_ZOOM.min, maxZoom: MAP_ZOOM.max, maxNativeZoom: 18, attribution: '배경지도 © 브이월드(국토교통부)',
     })
       .on('tileload', () => { loaded++; })
       .on('tileerror', () => { if (++failed >= 6 && !loaded) onError('브이월드 배경지도를 불러오지 못했습니다'); })
