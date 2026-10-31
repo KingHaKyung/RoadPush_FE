@@ -125,10 +125,16 @@ export function midOf(pts: [number, number][]) {
 }
 
 /** 좌표에서 가장 가까운 예시 지역 링크 (백엔드 관측처럼 좌표만 있을 때) */
+/** 가까운 도로로 인정하는 거리(m) */
+const NEAR_M = 100;
+/**
+ * 가장 가까운 도로 링크. 화면이 가진 도로 자료(표준노드링크)는 예시 지역(성남)뿐이라, 그 밖(예: 서울 노량진)의 관측에
+ * 수십 km 떨어진 도로가 '가까운 도로'로 붙었다. 100m 안에 없으면 빈 값('')으로 두고 화면은 주소로 보여 준다
+ */
 export function nearestSeg(lat: number, lng: number): string {
-  let best = SEGMENTS[0].id, bd = Infinity;
+  let best = '', bd = Infinity;
   for (const sg of SEGMENTS) { const d = distToLine([lat, lng], sg.ll); if (d < bd) { bd = d; best = sg.id; } }
-  return best;
+  return bd <= NEAR_M ? best : '';
 }
 
 export const pinKey = (o: Pick<Observation, 'lat' | 'lng'>) => `${o.lat.toFixed(5)},${o.lng.toFixed(5)}`;
