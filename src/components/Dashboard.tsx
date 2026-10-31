@@ -48,11 +48,12 @@ export function KpiCard({ label, value, unit, delta, deltaLabel, values, note, t
     <>
       <p className="kpi-v"><b>{value}</b>{unit && <span>{unit}</span>}</p>
       <h3>{label}</h3>
-      {/* deltaLabel이 있으면 같은 지표의 증감(보고서: 직전 기간 대비), 없으면 오늘 신규와 어제 같은 시각까지의 신규 (대시보드).
+      {/* deltaLabel이 있으면 같은 지표의 증감(보고서: 직전 기간 대비), 없으면 오늘 신규 (대시보드).
           대시보드 큰 숫자는 지금 상태(곳·건)라 증감으로 붙이면 단위가 섞인다 */}
       {delta ? (deltaLabel
         ? <p className={`kpi-d ${mood}`}>{d > 0 ? '↑' : d < 0 ? '↓' : '–'} {Math.abs(d)}건 <span>{deltaLabel}</span></p>
-        : <p className={`kpi-d ${mood}`}>오늘 신규 {delta.now}건 <span>· 어제 이 시각 {delta.prev}건</span></p>
+        // 오늘 들어온 수만 (어제와 비교하지 않으므로 늘고 줆의 색도 쓰지 않는다)
+        : <p className="kpi-d flat">오늘 신규 {delta.now}건</p>
       ) : note && <p className="kpi-d flat">{note}</p>}
       {values && values.some((v) => v > 0) && <div className="kpi-spark"><Sparkline values={values} label={`${label} 추세: ${values.join(', ')}건`} /></div>}
     </>
