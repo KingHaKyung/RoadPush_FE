@@ -25,13 +25,13 @@ const PHOTO_MAX = 20 * 1024 * 1024;
 const LOC_TEXT: Record<Source, string> = { exif: '사진에 담긴 위치', device: '현재 내 위치', manual: '지도에서 고른 위치' };
 /**
  * 사진 예시 (public/report-examples, 긴 변 640px로 줄인 실제 사진). alt는 사진에 보이는 것을 적는다.
- * 문구는 휴대폰 두 칸 폭에서도 한 줄로 들어가게 모두 일곱 글자 (좋은 예·피할 예는 사진 위 표시로)
+ * 좋은 예·피할 예는 사진 위 표시로, 문구는 아래에 (휴대폰 두 칸 폭에서는 두 줄까지)
  */
 const PHOTO_EXAMPLES = [
-  { ok: true, text: '길 전체 폭 보이게', src: '/report-examples/ok-1.jpg', alt: '보도가 뻗은 방향으로 서서 찍어 보도 양쪽 끝과 차도가 함께 보이는 사진' },
-  { ok: true, text: '막은 것과 남은 길', src: '/report-examples/ok-2.jpg', alt: '골목길 정면 사진. 횡단보도 위에 승용차가 세워져 있고 옆으로 남은 길이 함께 보인다' },
-  { ok: false, text: '너무 가까이 찍음', src: '/report-examples/ng-1.jpg', alt: '자전거와 킥보드를 가까이서 비스듬히 찍어 길 전체 폭이 보이지 않는 사진' },
-  { ok: false, text: '어둡거나 흔들림', src: '/report-examples/ng-2.jpg', alt: '밤에 흔들려 찍혀 보도가 번져 보이는 사진' },
+  { ok: true, text: '보도 전체 폭이 보이도록 촬영', src: '/report-examples/ok-1.jpg', alt: '보도가 뻗은 방향으로 서서 찍어 보도 양쪽 끝과 차도가 함께 보이는 사진' },
+  { ok: true, text: '장애물과 통행 가능 공간이 보이도록 촬영', src: '/report-examples/ok-2.jpg', alt: '골목길 정면 사진. 횡단보도 위에 승용차가 세워져 있고 옆으로 남은 길이 함께 보인다' },
+  { ok: false, text: '장애물을 너무 가까이서 촬영', src: '/report-examples/ng-1.jpg', alt: '자전거와 킥보드를 가까이서 비스듬히 찍어 길 전체 폭이 보이지 않는 사진' },
+  { ok: false, text: '어둡거나 흔들려 식별이 어려운 사진', src: '/report-examples/ng-2.jpg', alt: '밤에 흔들려 찍혀 보도가 번져 보이는 사진' },
 ];
 const TIME_TEXT: Record<Source, string> = { exif: '사진에 담긴 시각', device: '사진 파일 시각', manual: '직접 고른 시각' };
 
