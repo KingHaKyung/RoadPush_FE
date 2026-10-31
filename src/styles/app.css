@@ -809,6 +809,34 @@ main h1:focus{outline:none;box-shadow:none}
 .report-head h2{margin:0;font-size:var(--fs-xl);font-weight:700}
 .report-head p{margin:0;color:var(--muted)}
 .report-note{margin:8px 0 0;padding-top:12px;border-top:1px solid var(--line-soft);font-size:var(--fs-s);color:var(--muted)}
+/* 보고서 1~5 구획: 구획 사이는 선으로, 숫자 뜻을 먼저 한 문장(lead), 기준·설명은 작게(sub) */
+.report .report-sec{gap:12px}
+.report .report-sec + .report-sec{padding-top:20px;border-top:1px solid var(--line-soft)}
+.report-sec h3.sec-title{font-size:var(--fs-m)}
+.report-lead{margin:0;font-size:var(--fs-m);line-height:1.6;color:var(--ink)}
+.report-sub{margin:0;font-size:var(--fs-s);line-height:1.6;color:var(--muted)}
+.report-cell-sub{display:block;margin-top:2px;font-size:var(--fs-s);color:var(--muted)}
+.report-top td{vertical-align:middle}
+/* 칸 너비: 위치에 가장 넓게 (인쇄는 칸을 고르게 나눠 위치가 세 줄로 접혔다) */
+.report-top th:nth-child(1){width:124px}.report-top th:nth-child(2){width:30%}.report-top th:nth-child(3){width:84px}.report-top th:nth-child(4){width:72px}.report-top th:nth-child(6){width:136px}.report-top th:nth-child(7){width:100px}
+.report-photo{display:block;width:96px;height:72px;overflow:hidden;border-radius:6px;background:#000}
+.report-photo svg{width:100%;height:100%}
+/* 처리 단계 막대: 앞 단계(회색·주황)에서 뒤 단계(인디고·초록)로 */
+.stage{display:flex;flex-direction:column;gap:8px}
+.stage-bar{display:flex;gap:2px;height:16px;border-radius:999px;overflow:hidden;background:var(--sunk)}
+.stage-bar i{display:block;height:100%;flex-basis:0}
+.stage-legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0;padding:0;list-style:none;font-size:var(--fs-s);color:var(--muted)}
+.stage-legend li{display:inline-flex;align-items:center;gap:6px}
+.stage-legend li i{width:10px;height:10px;border-radius:3px}
+.stage-legend b{color:var(--ink)}
+.st-0{background:var(--hold)}.st-1{background:var(--narrow)}.st-2{background:var(--krds-color-light-primary-30)}.st-3{background:var(--accent)}.st-4{background:var(--pass)}
+/* AI 판정 분포: 네 칸 */
+.report-ai{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0}
+.report-ai > div{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:var(--r-m);background:var(--sunk)}
+.report-ai dd{margin:0;font-size:var(--fs-s);color:var(--muted)}
+.report-ai dd b{font-size:var(--fs-xl);color:var(--ink)}
+.report-notes{margin:0;padding-left:18px;font-size:var(--fs-s);line-height:1.7;color:var(--muted)}
+@media (max-width:760px){.report-ai{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .report section{display:flex;flex-direction:column;gap:10px}
 .report-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:20px}
 .report .list-table table{min-width:0;width:100%;table-layout:auto}
@@ -831,6 +859,8 @@ body.report-print .modal-box{width:auto;height:auto;max-height:none;overflow:vis
 body.report-print .report .kpis{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
 body.report-print .report .kpi.hero{grid-column:auto}
 body.report-print .report .report-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+body.report-print .report .report-ai{grid-template-columns:repeat(4,minmax(0,1fr))}
+body.report-print .stage-bar i,body.report-print .stage-legend i,body.report-print .report-ai > div{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 /* KRDS·목록 표가 좁은 화면에서 주는 너비(화면 폭 100vw·최소 너비)를 끈다: 인쇄에는 스크롤이 없어 칸 밖으로 잘린다 */
 body.report-print .report .krds-table-wrap{width:100%;overflow:visible}
 body.report-print .report .krds-table-wrap table{min-width:0;width:100%;table-layout:fixed}
