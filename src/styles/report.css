@@ -46,8 +46,8 @@
 .rp-examples .ok .rp-ex-img{box-shadow:inset 0 0 0 1px var(--line)}
 .rp-examples .ng .rp-ex-img{opacity:.9}
 @container (min-width:440px){.rp-examples ul{grid-template-columns:repeat(4,minmax(0,1fr))}}
-/* 문구는 한 줄 (모두 일곱 글자). 혹시 넘치면 줄바꿈 대신 말줄임 */
-.rp-ex-cap{overflow:hidden;font-size:var(--fs-s);font-weight:600;color:var(--ink);text-align:center;white-space:nowrap;text-overflow:ellipsis}
+/* 문구는 두 줄까지 (낱말 중간에서 끊지 않게). 칸마다 높이를 맞춰 사진 줄이 어긋나지 않게 */
+.rp-ex-cap{min-height:3em;font-size:var(--fs-s);font-weight:600;line-height:1.5;color:var(--ink);text-align:center;word-break:keep-all}
 .rp-ex-fig{position:relative;display:block}
 .rp-ex-badge{position:absolute;left:6px;top:6px;padding:2px 8px;border-radius:999px;font-size:var(--fs-s);font-weight:700;line-height:1.5;color:#fff}
 .rp-examples .ok .rp-ex-badge{background:var(--pass)}
