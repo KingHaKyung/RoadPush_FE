@@ -1,9 +1,10 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { USE_API } from '../api/client';
 import { ACTIONS, DEPTS, NO_DEPT, PASS, RANK, routeName, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
 import { capturedEarlier, effPass, segById } from '../lib/segments';
 import { requestText } from '../lib/request';
-import type { Action, Observation, ObservationPatch } from '../types';
+import type { Action, HistoryEntry, Observation, ObservationPatch } from '../types';
 import { ChipGroup } from './ChipGroup';
 import { FrameView } from './FrameView';
 import { Pill } from './Pill';
@@ -21,6 +22,27 @@ interface Props {
 }
 
 const FP_REASONS = ['차도·배경에 있는 물체', '상시 고정시설', '그림자·반사', '원인 종류가 틀림', '기타'];
+
+/**
+ * 공유 서버 이력은 처리 상태(처리 기록)와 같이 쓴 메모(메모 테이블)가 따로 와서 두 항목이 된다.
+ * 같은 사람이 몇 초 안에 남긴 '처리 상태'와 '메모'는 한 항목으로 묶는다 (메모는 아래 줄, 메모만 고칠 수 있다).
+ * 예시 데이터는 처음부터 한 항목에 담기고 시각이 모두 같아서 묶지 않는다
+ */
+function mergeMemos(hist: HistoryEntry[]): HistoryEntry[] {
+  if (!USE_API) return [...hist];
+  const out = [...hist].sort((a, b) => a.t.localeCompare(b.t));
+  const near = (a: HistoryEntry, b: HistoryEntry) => a.by === b.by && Math.abs(Date.parse(a.t) - Date.parse(b.t)) <= 10_000;
+  for (let i = 0; i < out.length; i++) {
+    const m = out[i];
+    if (m.txt || m.memo == null) continue;
+    const j = [i - 1, i + 1].find((k) => out[k] && !out[k].memo && out[k].txt.startsWith('처리 상태') && near(out[k], m));
+    if (j == null) continue;
+    out[j] = { ...out[j], memo: m.memo, id: m.id, editedAt: m.editedAt };
+    out.splice(i, 1);
+    i--;
+  }
+  return out;
+}
 
 /**
  * 관측 상세: 위치·판정 → 사진 → 핵심 숫자 → 처리 순서로 보여 주고,
@@ -95,7 +117,7 @@ export function ObservationDetail({ o, onUpdate, layout = 'panel', extra, relate
     setFpOpen(false);
   };
   // 최신이 위로. 시각이 같으면(예시 데이터는 모두 같은 '지금') 나중에 남긴 것이 위로
-  const hist = [...o.hist].reverse().sort((a, b) => b.t.localeCompare(a.t));
+  const hist = mergeMemos(o.hist).reverse().sort((a, b) => b.t.localeCompare(a.t));
 
   return (
     <div className={`od od-${layout}`}>
@@ -209,9 +231,9 @@ export function ObservationDetail({ o, onUpdate, layout = 'panel', extra, relate
               <li key={e.id ?? i} className={e.ai ? 'ai' : ''}>
                 <time>{fmtTime(e.t)}{e.by ? ` · ${e.by}` : e.ai ? ' · 시스템' : ''}</time>
                 {e.txt}
-                {e.memo != null && editing?.id !== e.id && (
+                {e.memo != null && !(editing && e.id && editing.id === e.id) && (
                   <span className="hist-memo">
-                    {e.txt && ' · '}메모: {e.memo}
+                    메모: {e.memo}
                     {e.editedAt && <span className="hist-edited" title={`${fmtTime(e.editedAt)} 수정`}>(수정됨)</span>}
                     {e.id && <button type="button" className="krds-btn xsmall text hist-fix" onClick={() => setEditing({ id: e.id!, text: e.memo! })}>메모 고치기</button>}
                   </span>

@@ -210,7 +210,7 @@ svg.map .mk .num{font-size:10px;font-weight:700;fill:#fff;font-family:var(--f-bo
 .hist li::before{content:"";position:absolute;left:-20px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--surface);border:2px solid var(--line)}
 .hist li.ai::before{border-color:var(--accent)}
 .hist time{display:block;font-size:var(--fs-s);color:var(--faint)}
-.hist-memo{color:var(--ink)}
+.hist-memo{display:block;color:var(--ink)}
 .hist-edited{margin-left:4px;font-size:var(--fs-s);color:var(--muted)}
 .hist-fix{margin-left:6px;vertical-align:baseline}
 .hist-editor{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
