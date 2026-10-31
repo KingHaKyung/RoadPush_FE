@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ACTIONS, DEPTS, OPEN_ACTIONS, CL_KIND, CL_PAVE, PASS, PASS_KEYS, PIN_COLOR, RANK, SORT_LABEL, SRC_LABEL } from '../lib/constants';
+import { ACTIONS, DEMO_NOW, DEPTS, OPEN_ACTIONS, CL_KIND, CL_PAVE, PASS, PASS_KEYS, PIN_COLOR, RANK, SORT_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
 import { dayDelta, kpiPred, siteCounts, trend as trendOf, type KpiKey } from '../lib/stats';
-import { compareObs, effPass, inPeriod, nodeName, pinKey, pinsOf, segById } from '../lib/segments';
+import { addDays, compareObs, effPass, inPeriod, nodeName, pinKey, pinsOf, RANGE_MAX_DAYS, segById, ymd } from '../lib/segments';
 import type { Action, Filters, Observation, ObservationPatch, Pass, Pin, SortKey, Source } from '../types';
 import { AreaBars, KpiCard, SectionTitle } from './Dashboard';
 import { EmptyState } from './EmptyState';
@@ -153,6 +153,11 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
   const sites = useMemo(() => pinsOf(obs, { ...f, pass: new Set(PASS_KEYS), act: new Set(ACTIONS) }), [obs, f]);
   const pins = useMemo(() => pinsOf(obs, f), [obs, f]);
   const cnt = (p: Pass) => sites.filter((s) => s.pass === p).length;
+  /** 지도에 찍을 지점이 없을 때: 기간 안에 관측은 있는데 조건에 걸렸는지, 기간 안에 아예 없는지 */
+  const periodHasSites = useMemo(() => !pins.length && pinsOf(obs, { ...f, q: '', dept: '', pass: new Set(PASS_KEYS), act: new Set(ACTIONS), src: new Set<Source>(['cctv', 'car', 'upload']) }).length > 0, [obs, f, pins.length]);
+  const resetConds = () => setFilters({ ...f, q: '', dept: '', pass: new Set(PASS_KEYS), act: new Set(ACTIONS), src: new Set<Source>(['cctv', 'car', 'upload']) });
+  const widen = () => setFilters({ ...f, period: 'range', range: { from: addDays(ymd(DEMO_NOW), -(RANGE_MAX_DAYS - 1)), to: ymd(DEMO_NOW) } });
+  const periodText = f.period === 'today' ? '오늘' : f.period === '3d' ? '최근 3일 동안' : `${f.range.from} ~ ${f.range.to} 동안`;
 
   const toggle = <K extends 'pass' | 'act' | 'src'>(key: K, v: string, on: boolean) => {
     const s = new Set(f[key] as Set<string>);
@@ -281,6 +286,16 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
 
       <div className="mapwrap">
         <RiskMap pins={pins} selectedPin={site} hoverPin={hoverPin} onPickPin={(p) => { setHoverPin(null); pickPin(p); }} selected={selSeg} onSelect={(id) => selectSeg(id)} focusKey={focusKey} />
+        {!pins.length && (
+          <div className="map-empty">
+            {periodHasSites ? (
+              <EmptyState kind="search" small title="조건에 맞는 지점이 없습니다" desc="판정·처리 상태·부서·검색어 조건을 풀면 지점이 다시 보입니다." action={{ label: '조건 초기화', onClick: resetConds }} />
+            ) : (
+              <EmptyState kind="map" small title={`${periodText} 들어온 관측이 없습니다`} desc="기간을 넓히면 이전 관측을 지도에 표시합니다."
+                action={f.period === 'range' && f.range.from <= addDays(ymd(DEMO_NOW), -(RANGE_MAX_DAYS - 1)) ? undefined : { label: '최근 3개월 보기', onClick: widen }} />
+            )}
+          </div>
+        )}
         <div className="maptools">
           {!filterOpen && <button type="button" className="krds-btn xsmall secondary" onClick={() => showFilters(true)}>필터</button>}
           <div className="box map-legend">

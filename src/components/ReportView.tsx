@@ -32,7 +32,9 @@ const days = (r: DateRange) => Math.round((dayStart(r.to) - dayStart(r.from)) / 
 const inRange = (o: Observation, r: DateRange) => { const t = obsTime(o); return t >= dayStart(r.from) && t < dayStart(r.to) + DAY; };
 /** 같은 길이만큼 바로 앞 기간 (증감 비교용) */
 const prevRange = (r: DateRange): DateRange => ({ from: addDays(r.from, -days(r)), to: addDays(r.from, -1) });
-const dot = (s: string) => s.replace(/-/g, '.');
+/** 공문서 날짜 표기: 2026. 10. 1. (끝 날짜는 같은 해면 연도를 뺀다) */
+const krDate = (s: string, withYear = true) => { const [y, m, d] = s.split('-').map(Number); return `${withYear ? `${y}. ` : ''}${m}. ${d}.`; };
+const krRange = (r: DateRange) => `${krDate(r.from)} ~ ${krDate(r.to, r.from.slice(0, 4) !== r.to.slice(0, 4))}`;
 
 const isRisk = (o: Observation) => ['blocked', 'narrowed'].includes(effPass(o));
 /** 화면에 보여 줄 처리 미완료 수 (엑셀에는 전부) */
@@ -80,28 +82,30 @@ export function ReportView({ obs }: { obs: Observation[] }) {
 
   const cur = useMemo(() => summarize(obs, range), [obs, range]);
   const prev = useMemo(() => summarize(obs, prevRange(range)), [obs, range]);
-  const title = `보행 통로 관제 보고서 (${dot(range.from)} ~ ${dot(range.to)})`;
-  useEffect(() => { document.title = `${title} · RoadPush`; return () => { document.title = 'RoadPush 관제 대시보드'; }; }, [title]);
+  const title = '보행 통로 위험 관측 현황 보고';
+  const span = `${krRange(range)}(${days(range)}일)`;
+  const vs = `직전 ${days(range)}일 대비`;
+  useEffect(() => { document.title = `${title} ${range.from}~${range.to} · RoadPush`; return () => { document.title = 'RoadPush 관제 대시보드'; }; }, [title]);
 
   /** 엑셀(CSV): 요약·표를 위에서부터 차례로 (빈 줄로 구분) */
   const download = () => {
     const cell = (v: string | number) => { const s = String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
     const rows: (string | number)[][] = [
-      [title], [`작성 ${fmtTime(new Date().toISOString())}`], [],
-      ['요약', '이번 기간', '이전 기간'],
+      [title], [`기간: ${span}`], [`작성: ${fmtTime(new Date().toISOString())}`], [],
+      ['요약', '이번 기간', `직전 ${days(range)}일`],
       ['전체 관측', cur.total, prev.total], ['단절', cur.blocked, prev.blocked], ['좁아짐', cur.narrowed, prev.narrowed], ['판단 유보', cur.hold, prev.hold],
-      ['처리 대상', cur.targets, prev.targets], ['조치 완료', cur.done, prev.done], ['처리 완료율(%)', cur.rate ?? '', prev.rate ?? ''], [],
+      ['처리 대상', cur.targets, prev.targets], ['조치 완료', cur.done, prev.done], ['조치 완료율(%)', cur.rate ?? '', prev.rate ?? ''], [],
       ['행정구역별 위험 관측', '건수'], ...cur.areas, [],
       ['원인별 위험 관측', '건수'], ...cur.causes, [],
-      ['담당 부서', ...STATES], ...cur.depts.map((d) => [d.dept, ...d.by]), [],
-      ['반복·해소 지점', '현장 추이', '행정구역', '최근 관측', '판정'], ...cur.repeat.map((o) => [o.place, trendOf(o)!.label, o.area ?? '', fmtTime(o.t), PASS[effPass(o)].label]), [],
-      ['처리 미완료 관측', '판정', '위험도', '처리 유형', '담당 부서', '처리 상태', '촬영', '관측 ID'],
+      ['부서별 조치 현황', ...STATES], ...cur.depts.map((d) => [d.dept, ...d.by]), [],
+      ['반복 발생 및 해소 지점', '현장 추이', '행정구역', '최근 관측', '판정'], ...cur.repeat.map((o) => [o.place, trendOf(o)!.label, o.area ?? '', fmtTime(o.t), PASS[effPass(o)].label]), [],
+      ['미조치 현황(위험도순)', '판정', '위험도', '처리 유형', '담당 부서', '처리 상태', '촬영', '관측 ID'],
       ...cur.open.map((o) => [o.place, PASS[effPass(o)].label, o.risk ?? '', [...new Set(o.routes.map((x) => routeName(x.type)))].join(', '), o.dept, o.action, fmtTime(o.t), o.id]),
     ];
     const csv = '﻿' + rows.map((r) => r.map(cell).join(',')).join('\r\n');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-    a.download = `RoadPush_보고서_${range.from}_${range.to}.csv`;
+    a.download = `보행통로_위험관측_현황보고_${range.from}_${range.to}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
@@ -156,17 +160,17 @@ export function ReportView({ obs }: { obs: Observation[] }) {
       <article className="report" ref={reportRef}>
         <header className="report-head">
           <h2>{title}</h2>
-          <p>이전 기간({dot(prevRange(range).from)} ~ {dot(prevRange(range).to)})과 비교 · {days(range)}일</p>
+          <p>기간: {span} · 비교: {krRange(prevRange(range))} · 작성: {fmtTime(new Date().toISOString())}</p>
         </header>
 
         {!cur.total ? (
           <EmptyState kind="empty" title="이 기간에 들어온 관측이 없습니다" desc="다른 기간을 골라 보세요. 최대 3개월까지 볼 수 있습니다." />
         ) : <>
           <div className="kpis">
-            <KpiCard hero label="전체 관측" unit="건" value={cur.total} delta={delta('total')} deltaLabel="이전 대비" tone="neutral" />
-            <KpiCard label="단절" unit="건" value={cur.blocked} delta={delta('blocked')} deltaLabel="이전 대비" />
-            <KpiCard label="좁아짐" unit="건" value={cur.narrowed} delta={delta('narrowed')} deltaLabel="이전 대비" />
-            <KpiCard label="처리 완료율" unit={cur.rate == null ? undefined : '%'} value={cur.rate ?? '—'} note={`${cur.targets}건 중 ${cur.done}건 완료`} tone="good" />
+            <KpiCard hero label="전체 관측" unit="건" value={cur.total} delta={delta('total')} deltaLabel={vs} tone="neutral" />
+            <KpiCard label="단절" unit="건" value={cur.blocked} delta={delta('blocked')} deltaLabel={vs} />
+            <KpiCard label="좁아짐" unit="건" value={cur.narrowed} delta={delta('narrowed')} deltaLabel={vs} />
+            <KpiCard label="조치 완료율" unit={cur.rate == null ? undefined : '%'} value={cur.rate ?? '—'} note={`처리 대상 ${cur.targets}건 중 ${cur.done}건`} tone="good" />
           </div>
 
           <div className="report-grid">
@@ -181,10 +185,10 @@ export function ReportView({ obs }: { obs: Observation[] }) {
           </div>
 
           <section>
-            <SectionTitle title="부서별 처리 현황" />
+            <SectionTitle title="부서별 조치 현황" />
             <div className="krds-table-wrap list-table">
               <table className="tbl col data">
-                <caption>부서별 처리 현황</caption>
+                <caption>부서별 조치 현황</caption>
                 <thead><tr><th scope="col">담당 부서</th>{STATES.map((s) => <th key={s} scope="col" className="num">{s}</th>)}</tr></thead>
                 <tbody>{cur.depts.map((d) => <tr key={d.dept}><th scope="row">{d.dept}</th>{d.by.map((n, i) => <td key={i} className="num">{n}</td>)}</tr>)}</tbody>
               </table>
@@ -193,10 +197,10 @@ export function ReportView({ obs }: { obs: Observation[] }) {
 
           {cur.repeat.length > 0 && (
             <section>
-              <SectionTitle title="반복·해소 지점" sub={`${cur.repeat.length}곳`} />
+              <SectionTitle title="반복 발생 및 해소 지점" sub={`${cur.repeat.length}곳`} />
               <div className="krds-table-wrap list-table">
                 <table className="tbl col data">
-                  <caption>반복·해소 지점</caption>
+                  <caption>반복 발생 및 해소 지점</caption>
                   <thead><tr><th scope="col">위치</th><th scope="col">현장 추이</th><th scope="col">행정구역</th><th scope="col">최근 관측</th><th scope="col">판정</th></tr></thead>
                   <tbody>{cur.repeat.map((o) => (
                     <tr key={o.id}><td>{o.place}</td><td>{trendOf(o)!.label}</td><td>{o.area ?? '—'}</td><td>{fmtTime(o.t)}</td><td><PassDot pass={effPass(o)} /></td></tr>
@@ -207,17 +211,18 @@ export function ReportView({ obs }: { obs: Observation[] }) {
           )}
 
           <section>
-            <SectionTitle title="처리 미완료 관측" sub={`위험도순 ${cur.open.length}건${cur.open.length > OPEN_SHOWN ? ` 중 상위 ${OPEN_SHOWN}건 (전체는 엑셀)` : ''}`} />
+            <SectionTitle title="미조치 현황(위험도순)" sub={`${cur.open.length}건${cur.open.length > OPEN_SHOWN ? ` 중 상위 ${OPEN_SHOWN}건 (전체는 엑셀)` : ''}`} />
             <div className="krds-table-wrap list-table">
               <table className="tbl col data">
-                <caption>처리 미완료 관측</caption>
+                <caption>미조치 현황</caption>
                 <thead><tr><th scope="col">위치</th><th scope="col">판정</th><th scope="col" className="num">위험도</th><th scope="col">처리 유형</th><th scope="col">담당 부서</th><th scope="col">처리 상태</th><th scope="col">촬영</th></tr></thead>
                 <tbody>{cur.open.length ? cur.open.slice(0, OPEN_SHOWN).map((o) => (
                   <tr key={o.id}><td>{o.place}</td><td><PassDot pass={effPass(o)} /></td><td className="num">{o.risk ?? '—'}</td><td>{[...new Set(o.routes.map((x) => routeName(x.type)))].join(', ')}</td><td>{o.dept}</td><td>{o.action}</td><td>{fmtTime(o.t)} · {SRC_LABEL[o.src]}</td></tr>
-                )) : <tr><td colSpan={7} className="small">모두 처리했습니다.</td></tr>}</tbody>
+                )) : <tr><td colSpan={7} className="small">미조치 건이 없습니다.</td></tr>}</tbody>
               </table>
             </div>
           </section>
+          <p className="report-note">판정·위험도·점유율은 사진을 AI로 분석한 값으로, 현장 확인 전 참고 자료입니다.</p>
         </>}
       </article>
     </section>

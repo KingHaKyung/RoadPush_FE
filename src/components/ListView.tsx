@@ -94,6 +94,8 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
     { label: '미처리', pred: (o) => o.routes.length > 0 && o.action === '미처리', tone: 'risk', active: allPass && only(f.act, '미처리'), apply: { pass: new Set(PASS_KEYS), act: new Set<Action>(['미처리']) } },
     { label: '조치 완료', pred: (o) => o.action === '조치 완료', tone: 'good', active: allPass && only(f.act, '조치 완료'), apply: { pass: new Set(PASS_KEYS), act: new Set<Action>(['조치 완료']) } },
   ];
+  // 카드를 누르면 거른다는 걸 모르는 사람도 쓰게, 같은 거르기를 표 바로 위 보기 버튼으로도 둔다 (카드와 같은 상태)
+  const pickKpi = (k: (typeof KPIS)[number]) => setFilters(k.active ? { ...f, pass: new Set(PASS_KEYS), act: new Set(ACTIONS) } : { ...f, ...k.apply });
   /** 표 머리 정렬: 다른 칸을 누르면 그 칸의 기본 방향으로, 같은 칸을 다시 누르면 방향을 뒤집는다 */
   const sortTh = (k: SortKey, label: string) => {
     const on = f.sort === k;
@@ -160,7 +162,7 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
         {KPIS.map((k, i) => {
           const pred = (o: Observation) => matchesQuery(o, f.q) && k.pred(o);
           return <KpiCard key={k.label} hero={i === 0} label={k.label} unit="건" value={base.filter(k.pred).length} tone={k.tone}
-            delta={dayDelta(obs, f, pred)} values={trend(obs, f, pred)} active={k.active} onClick={() => setFilters(k.active ? { ...f, pass: new Set(PASS_KEYS), act: new Set(ACTIONS) } : { ...f, ...k.apply })} />;
+            delta={dayDelta(obs, f, pred)} values={trend(obs, f, pred)} active={k.active} onClick={() => pickKpi(k)} />;
         })}
       </div>
       <div className="toolbar">
@@ -203,6 +205,14 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
           <button type="button" className="krds-btn small tertiary" onClick={() => setPicked(new Set())}>선택 해제</button>
         </div>
       )}
+      <div className="view-seg" role="group" aria-label="표에 보일 관측">
+        {KPIS.map((k) => (
+          <button key={k.label} type="button" aria-pressed={k.active} onClick={() => !k.active && pickKpi(k)}>
+            {k.label === '전체 관측' ? '전체' : k.label} <span>{base.filter(k.pred).length}</span>
+          </button>
+        ))}
+        {!KPIS.some((k) => k.active) && <span className="view-seg-note">판정·처리 상태 조건 적용 중</span>}
+      </div>
       {/* KRDS 표: krds-table-wrap > table.tbl.col.data */}
       <div className="krds-table-wrap list-table" ref={tableRef}>
         <table className="tbl col data">
