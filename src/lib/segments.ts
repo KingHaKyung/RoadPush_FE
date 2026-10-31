@@ -1,6 +1,6 @@
 import { NODES, SEGMENTS } from '../data/nodelink';
 import type { DateRange, Filters, Observation, Pass, Pin, Segment, SortKey } from '../types';
-import { COND_LABEL, DEMO_NOW, PASS_KEYS, SRC_LABEL } from './constants';
+import { ACTIONS, COND_LABEL, DEMO_NOW, PASS_KEYS, SRC_LABEL } from './constants';
 import { distToLine } from './geo';
 
 /** 예시 지역 구간 + 지도에서 불러온 전국 타일 구간 */
@@ -72,8 +72,13 @@ export function matchesQuery(o: Observation, q: string): boolean {
 /** 분석 중인 관측은 판정이 없어서 판정 전체를 볼 때만 */
 const passOk = (o: Observation, f: Filters) => (o.analyzing ? f.pass.size === PASS_KEYS.length : f.pass.has(effPass(o)));
 
+/**
+ * 처리 상태로 거를 때(전체가 아닐 때)는 처리 대상만 남긴다. 통과 가능·원인 없음·분석 중 관측도 상태값은 '미처리'라
+ * 그대로 두면 '미처리'에 표에서 '해당 없음'·'검수 필요'·'분석 대기'로 보이는 행이 섞인다 (지표 카드 '미처리'와 같은 기준)
+ */
+const actOk = (o: Observation, f: Filters) => f.act.has(o.action) && (f.act.size === ACTIONS.length || (o.routes.length > 0 && !o.analyzing));
 export const matchesFilters = (o: Observation, f: Filters) =>
-  inPeriod(o, f) && f.src.has(o.src) && passOk(o, f) && f.act.has(o.action) && (!f.dept || o.dept === f.dept) && matchesQuery(o, f.q);
+  inPeriod(o, f) && f.src.has(o.src) && passOk(o, f) && actOk(o, f) && (!f.dept || o.dept === f.dept) && matchesQuery(o, f.q);
 
 /** 정렬 비교: 날짜는 최근 접수순, 행정구역은 가나다순, 위험도는 높은 순(점수 없음은 뒤). 같으면 최근 접수순 */
 export function compareObs(sort: SortKey) {

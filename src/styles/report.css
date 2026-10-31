@@ -47,3 +47,31 @@
 .rp-ex-cap b{flex:none;font-weight:700}
 .rp-examples .ok .rp-ex-cap b{color:var(--pass)}
 .rp-examples .ng .rp-ex-cap b{color:var(--blocked)}
+/* 사진 고르기: 촬영하기(가이드 촬영) · 앨범에서 고르기 */
+.rp-pick{display:flex;flex-wrap:wrap;gap:8px}
+.rp-pick .krds-btn{flex:1;justify-content:center;min-width:140px}
+/* 가이드 촬영: 화면 전체 카메라. 영상 비율 그대로의 틀 위에 가이드선을 겹친다 */
+.gc{position:fixed;inset:0;z-index:2000;display:flex;flex-direction:column;background:#000;color:#fff}
+.gc-top{display:flex;align-items:flex-start;gap:12px;padding:calc(12px + env(safe-area-inset-top,0px)) 16px 12px}
+.gc-close{flex:none;min-height:40px;padding:0 14px;border:1px solid rgba(255,255,255,.5);border-radius:999px;background:transparent;color:#fff;font:inherit;font-weight:600;cursor:pointer}
+.gc-close:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.gc-tip{margin:0;font-size:var(--fs-m);line-height:1.5;font-weight:600}
+.gc-stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:0 8px;container-type:size}
+/* 틀 = 영상 비율(--r)로 화면 안에 꼭 맞는 크기: 영상과 가이드선이 같은 범위를 덮는다 */
+.gc-frame{position:relative;width:min(100cqw, calc(100cqh * var(--r,0.5625)));aspect-ratio:var(--r,0.5625);overflow:hidden;border-radius:8px}
+.gc-frame video{display:block;width:100%;height:100%;object-fit:contain;background:#111}
+.gc-guide{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.gc-guide line,.gc-guide polyline{fill:none;stroke-width:3;vector-effect:non-scaling-stroke}
+.gc-eye{stroke:rgba(255,255,255,.75);stroke-dasharray:8 6}
+.gc-edge{stroke:#FFD43B}
+.gc-dot{fill:#FFD43B}
+.gc-label{position:absolute;padding:2px 8px;border-radius:999px;background:rgba(0,0,0,.55);font-size:var(--fs-s);font-weight:600}
+.gc-label-eye{left:8px;top:calc(40% - 30px)}
+.gc-label-edge{left:8px;bottom:12px;color:#FFD43B}
+.gc-error{position:absolute;inset:auto 16px 16px;display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:12px;background:#fff;color:var(--ink)}
+.gc-error p{margin:0}
+.gc-bottom{display:flex;justify-content:center;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px))}
+.gc-shutter{width:72px;height:72px;border-radius:50%;border:4px solid #fff;background:rgba(255,255,255,.25);box-shadow:inset 0 0 0 4px #000;cursor:pointer}
+.gc-shutter:active{background:#fff}
+.gc-shutter:disabled{opacity:.4;cursor:default}
+.gc-shutter:focus-visible{outline:3px solid #FFD43B;outline-offset:3px}

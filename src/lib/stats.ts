@@ -30,15 +30,20 @@ export function trend(obs: Observation[], f: Filters, pred: Pred, n = 12, now = 
   return out;
 }
 
-/** 최근 24시간과 그 전 24시간의 관측 수 */
+/**
+ * 오늘 새로 들어온 관측 수(0시~지금)와 어제 같은 시각까지 들어온 수(어제 0시~어제 이 시각).
+ * 전에는 '지금부터 24시간 전까지'와 그 전 24시간을 비교해, 어제 오후에 들어온 관측이 '오늘'로 잡혔다
+ */
 export function dayDelta(obs: Observation[], f: Filters, pred: Pred, now = DEMO_NOW): { now: number; prev: number } {
-  const end = now.getTime();
+  const t = now.getTime();
+  const today = new Date(now); today.setHours(0, 0, 0, 0);
+  const t0 = today.getTime(), y0 = t0 - 24 * H, yNow = t - 24 * H;
   let a = 0, b = 0;
   for (const o of obs) {
     if (!f.src.has(o.src) || !pred(o)) continue;
-    const age = end - obsTime(o);
-    if (age >= 0 && age < 24 * H) a++;
-    else if (age >= 24 * H && age < 48 * H) b++;
+    const at = obsTime(o);
+    if (at >= t0 && at <= t) a++;
+    else if (at >= y0 && at <= yNow) b++;
   }
   return { now: a, prev: b };
 }
