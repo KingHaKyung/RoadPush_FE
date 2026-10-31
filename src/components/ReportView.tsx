@@ -149,7 +149,11 @@ export function ReportView({ obs }: { obs: Observation[] }) {
    * 화면의 스타일을 그대로 옮겨 같은 모양으로 나오고, 뒤 화면·창 테두리·도구 줄은 들어가지 않는다
    */
   const reportRef = useRef<HTMLElement>(null);
+  /** 인쇄용 보고서를 만드는 중 (사진을 받느라 몇 초 걸린다). 그동안 버튼을 막고 안내를 띄운다 */
+  const [printing, setPrinting] = useState(false);
   const printReport = () => {
+    if (printing) return;
+    setPrinting(true);
     const src = reportRef.current; if (!src) return;
     const frame = document.createElement('iframe');
     frame.title = '보고서 인쇄';
@@ -163,7 +167,8 @@ export function ReportView({ obs }: { obs: Observation[] }) {
       + `<body class="report-print"><div class="modal-box modal-xl">${src.outerHTML.replace(/ loading="lazy"/g, '')}</div></body></html>`);
     doc.close();
     // 글꼴·스타일을 다 읽은 뒤 인쇄하고, 인쇄 창을 닫으면 틀을 치운다
-    const go = () => { win.focus(); win.print(); };
+    // 인쇄 창이 뜨기 직전에 안내를 내린다 (인쇄 창은 닫힐 때까지 화면을 멈춘다)
+    const go = () => { setPrinting(false); win.focus(); win.print(); };
     win.addEventListener('afterprint', () => frame.remove());
     // 사진(우선 확인 지점)까지 받은 뒤 인쇄 (공유 서버가 느려 최대 10초까지 기다린다. 화면에서 'lazy'는 숨은 틀에서 받지 않아 뺐다)
     const imgs = [...doc.images].map((im) => (im.complete ? Promise.resolve() : new Promise((r) => { im.onload = im.onerror = r; })));
@@ -188,10 +193,15 @@ export function ReportView({ obs }: { obs: Observation[] }) {
           <input className="krds-input small" type="date" id="rp-to" value={range.to} min={range.from} max={[addDays(range.from, RANGE_MAX_DAYS - 1), today].sort()[0]} title="최대 3개월까지 고를 수 있습니다" onChange={(e) => { setPreset('custom'); setTo(e.target.value); }} />
         </div>
         <span className="grow" />
-        <button type="button" className="krds-btn small tertiary" onClick={printReport}>인쇄·PDF 저장</button>
+        <button type="button" className="krds-btn small tertiary" onClick={printReport} disabled={printing} aria-busy={printing}>
+          {printing ? <><span className="krds-spinner small" aria-hidden="true" />보고서 만드는 중</> : '인쇄·PDF 저장'}
+        </button>
         <button type="button" className="krds-btn small secondary" onClick={download}>엑셀로 내려받기</button>
       </div>
 
+      <p className="report-making" role="status" aria-live="polite">
+        {printing && '인쇄용 보고서를 만드는 중입니다. 현장 사진을 받느라 몇 초(최대 10초) 걸릴 수 있습니다.'}
+      </p>
       <article className="report" ref={reportRef}>
         <header className="report-head">
           <h2>{title}</h2>

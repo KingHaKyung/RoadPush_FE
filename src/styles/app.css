@@ -808,9 +808,13 @@ main h1:focus{outline:none;box-shadow:none}
 .report-head{display:flex;flex-direction:column;gap:4px}
 .report-head h2{margin:0;font-size:var(--fs-xl);font-weight:700}
 .report-head p{margin:0;color:var(--muted)}
+.report-making:empty{display:none}
+.report-making{margin:-8px 0 0;padding:10px 14px;border-radius:var(--r-m);background:var(--accent-soft);font-size:var(--fs-m);font-weight:600;color:var(--accent-text)}
 .report-note{margin:8px 0 0;padding-top:12px;border-top:1px solid var(--line-soft);font-size:var(--fs-s);color:var(--muted)}
 /* 보고서 1~5 구획: 구획 사이는 선으로, 숫자 뜻을 먼저 한 문장(lead), 기준·설명은 작게(sub) */
 .report .report-sec{gap:12px}
+/* 보고서 지표 카드의 증감 줄(직전 기간 실제 수까지)은 말줄임 대신 줄바꿈 */
+.report .kpi-d{white-space:normal;overflow:visible;text-overflow:clip}
 .report .report-sec + .report-sec{padding-top:20px;border-top:1px solid var(--line-soft)}
 .report-sec h3.sec-title{font-size:var(--fs-m)}
 .report-lead{margin:0;font-size:var(--fs-m);line-height:1.6;color:var(--ink)}
