@@ -162,6 +162,8 @@ svg.map .mk:focus .ring,svg.map .mk.sel .ring{stroke:var(--accent);stroke-width:
 svg.map .mk .num{font-size:10px;font-weight:700;fill:#fff;font-family:var(--f-body);pointer-events:none}
 .maptools{position:absolute;z-index:1000;left:12px;top:12px;display:flex;gap:8px;flex-wrap:wrap}
 .maptools .box{background:var(--surface);border:0;box-shadow:var(--shadow);border-radius:999px;padding:6px 10px;font-size:var(--fs-s);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.maptools .map-filter-btn{gap:6px;min-height:40px;padding:0 14px;box-shadow:var(--shadow);font-weight:700}
+.map-filter-n{margin-left:2px;padding:1px 8px;border-radius:999px;background:var(--accent-ink);color:var(--accent);font-size:var(--fs-s);font-weight:700}
 .zoom{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r-m);overflow:hidden;background:var(--surface)}
 .zoom button{border:0;background:transparent;width:34px;height:34px;font-size:var(--fs-l);cursor:pointer}
 .zoom button+button{border-top:1px solid var(--line)}

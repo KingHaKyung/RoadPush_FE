@@ -153,6 +153,8 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
   const sites = useMemo(() => pinsOf(obs, { ...f, pass: new Set(PASS_KEYS), act: new Set(ACTIONS) }), [obs, f]);
   const pins = useMemo(() => pinsOf(obs, f), [obs, f]);
   const cnt = (p: Pass) => sites.filter((s) => s.pass === p).length;
+  /** 기본(최근 3일·판정·처리 상태·수집 경로 전체·부서 전체·검색어 없음)과 다른 조건 수 */
+  const nCond = [f.period !== '3d', f.pass.size !== PASS_KEYS.length, f.act.size !== ACTIONS.length, f.src.size !== 3, !!f.dept, !!f.q.trim()].filter(Boolean).length;
   // 수집 경로도 판정·처리 상태와 같은 '지점' 단위로 센다 (전에는 사진 장수라 숫자가 맞지 않았다). 지점의 최근 관측이 들어온 경로
   const allSrc = useMemo(() => pinsOf(obs, { ...f, pass: new Set(PASS_KEYS), act: new Set(ACTIONS), src: new Set<Source>(['cctv', 'car', 'upload']) }), [obs, f]);
   /** 지도에 찍을 지점이 없을 때: 기간 안에 관측은 있는데 조건에 걸렸는지, 기간 안에 아예 없는지 */
@@ -299,7 +301,13 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
           </div>
         )}
         <div className="maptools">
-          {!filterOpen && <button type="button" className="krds-btn xsmall secondary" onClick={() => showFilters(true)}>필터</button>}
+          {/* 접었을 때 다시 여는 버튼: 지도 위에서 바로 보이게 크고 진하게, 기본과 다른 조건 수를 함께 (걸러 보는 중인지 알 수 있게) */}
+          {!filterOpen && (
+            <button type="button" className="krds-btn small primary map-filter-btn" onClick={() => showFilters(true)}>
+              <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 5h14M6 10h8M8.5 15h3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+              필터 열기{nCond > 0 && <span className="map-filter-n">조건 {nCond}개</span>}
+            </button>
+          )}
           <div className="box map-legend">
             {PASS_KEYS.map((p) => <span key={p}><i style={{ ['--c' as string]: PIN_COLOR[p].fill }} />{PASS[p].label}</span>)}
           </div>

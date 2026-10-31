@@ -138,11 +138,16 @@ function useApiObservations() {
   const [loaded, setLoaded] = useState(false);
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
+  /** 저장 중인 메모 고치기 (메모 번호 → 고친 글·시각). 그사이 주기적으로 다시 받아도 옛 메모로 돌아가지 않게 덧씌운다 */
+  const pendingMemo = useRef(new Map<string, { text: string; at: string }>());
+  const withPending = (rs: AnalysisResponse[]) => (pendingMemo.current.size ? rs.map((r) => ({
+    ...r, history: r.history.map((h) => { const p = h.id ? pendingMemo.current.get(h.id) : undefined; return p ? { ...h, txt: `메모: ${p.text}`, edited_at: p.at } : h; }),
+  })) : rs);
 
   /** animate: 사용자가 바꾼 직후에만 부드럽게 (5초마다 다시 읽을 때는 그냥 바꾼다) */
   const refresh = useCallback(async (animate = false) => {
     try {
-      const next = await fetchObservations();
+      const next = withPending(await fetchObservations());
       if (animate) smooth(() => setRows(next)); else setRows(next);
       setError(null);
       setLoaded(true);
@@ -199,7 +204,14 @@ function useApiObservations() {
         for (const id of list) await cancelReanalyze(id);
       }
       if (patch.memoEdit) {
-        for (const id of list) await editNote(id, patch.memoEdit.id, patch.memoEdit.text);
+        // 공유 서버가 느려(고치기 + 목록 다시 받기 10초 안팎) 그동안 옛 메모가 보였다. 화면에는 바로 반영하고,
+        // 서버 저장이 실패하면 아래 다시 받기에서 원래 내용으로 돌아온다
+        const { id: noteId, text } = patch.memoEdit;
+        pendingMemo.current.set(noteId, { text, at: new Date().toISOString() });
+        setRows((rs) => withPending(rs));
+        try {
+          for (const id of list) await editNote(id, noteId, text);
+        } finally { pendingMemo.current.delete(noteId); }
       }
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
