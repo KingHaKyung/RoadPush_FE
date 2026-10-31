@@ -197,10 +197,9 @@ svg.map .mk .num{font-size:10px;font-weight:700;fill:#fff;font-family:var(--f-bo
 .meter i{display:block;height:100%}
 .reason{border-left:3px solid var(--hold);padding:4px 0 4px 10px;font-size:var(--fs-m)}
 .form{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center;border-top:1px solid var(--line-soft);padding-top:14px}
-/* 큰 창에서는 담당 부서·처리 상태를 한 줄에 (라벨 · 선택 · 라벨 · 선택). 지도 패널·휴대폰은 두 줄 */
-.od-wide .form{grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr)}
-.od-wide .form > label:nth-of-type(2){margin-left:8px}
-@media (max-width:900px){.od-wide .form{grid-template-columns:auto minmax(0,1fr)}.od-wide .form > label:nth-of-type(2){margin-left:0}}
+/* 담당 부서·처리 상태: 상세 오른쪽 폭이 넉넉하면(큰 창·넓힌 지도 패널) 한 줄에 나란히, 좁으면(휴대폰·좁힌 패널) 두 줄. 창 종류가 아니라 실제 폭으로 나눈다 */
+.od-side{container-type:inline-size}
+@container (min-width:440px){.od-side .form{grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr)}.od-side .form > label:nth-of-type(2){margin-left:8px}}
 .form label{font-size:var(--fs-m);font-weight:700}
 .form .full{grid-column:1/-1;display:flex;gap:8px}
 .form .full .krds-input{flex:1}
