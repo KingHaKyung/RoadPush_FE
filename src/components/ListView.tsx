@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ACTIONS, DEMO_NOW, DEPTS, PASS, PASS_KEYS, PERIOD_LABEL, routeName, SORT_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
-import { addDays, compareObs, effPass, inPeriod, matchesFilters, matchesQuery, RANGE_MAX_DAYS, ymd } from '../lib/segments';
+import { addDays, capturedEarlier, compareObs, effPass, inPeriod, matchesFilters, matchesQuery, RANGE_MAX_DAYS, ymd } from '../lib/segments';
 import { dayDelta, trend } from '../lib/stats';
 import type { Action, Filters, Observation, ObservationPatch, Pass, Route, SortKey } from '../types';
 import { KpiCard } from './Dashboard';
@@ -94,6 +94,8 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
     { label: '미처리', pred: (o) => o.routes.length > 0 && o.action === '미처리', tone: 'risk', active: allPass && only(f.act, '미처리'), apply: { pass: new Set(PASS_KEYS), act: new Set<Action>(['미처리']) } },
     { label: '조치 완료', pred: (o) => o.action === '조치 완료', tone: 'good', active: allPass && only(f.act, '조치 완료'), apply: { pass: new Set(PASS_KEYS), act: new Set<Action>(['조치 완료']) } },
   ];
+  // 카드를 누르면 거른다는 걸 모르는 사람도 쓰게, 같은 거르기를 표 바로 위 보기 버튼으로도 둔다 (카드와 같은 상태)
+  const pickKpi = (k: (typeof KPIS)[number]) => setFilters(k.active ? { ...f, pass: new Set(PASS_KEYS), act: new Set(ACTIONS) } : { ...f, ...k.apply });
   /** 표 머리 정렬: 다른 칸을 누르면 그 칸의 기본 방향으로, 같은 칸을 다시 누르면 방향을 뒤집는다 */
   const sortTh = (k: SortKey, label: string) => {
     const on = f.sort === k;
@@ -112,8 +114,8 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
 
   /** 표 내용 (엑셀 내려받기). 좌표·사진 주소는 담당자가 행정 시스템에 옮길 때 쓴다 */
   const table = () => [
-    ['촬영 시각', '수집 경로', '행정구역', '위치', '주소', '위도', '경도', 'AI 판정', '위험도', '원인', '처리 유형', '지속성', '현장 확인', '담당 부서', '처리 상태', '사진', '관측 ID'],
-    ...rows.map((o) => [fmtTime(o.t), `${SRC_LABEL[o.src]} ${o.dev}`, o.area ?? '', o.place, o.addr ?? '', o.lat.toFixed(6), o.lng.toFixed(6), o.analyzing ? '분석 중' : PASS[effPass(o)].label, String(o.risk ?? ''), o.causes.join(', '),
+    ['접수 시각', '촬영 시각', '수집 경로', '행정구역', '위치', '주소', '위도', '경도', 'AI 판정', '위험도', '원인', '처리 유형', '지속성', '현장 확인', '담당 부서', '처리 상태', '사진', '관측 ID'],
+    ...rows.map((o) => [fmtTime(o.received ?? o.t), fmtTime(o.t), `${SRC_LABEL[o.src]} ${o.dev}`, o.area ?? '', o.place, o.addr ?? '', o.lat.toFixed(6), o.lng.toFixed(6), o.analyzing ? '분석 중' : PASS[effPass(o)].label, String(o.risk ?? ''), o.causes.join(', '),
       o.routes.map((r) => routeName(r.type)).join(', '), o.persist ? `${o.persist.kind} ${o.persist.n}회` : '', o.site ?? '', o.dept, statusText(o), o.img?.original ?? '', o.id]),
   ];
   // 엑셀에서 바로 열리는 CSV (앞의 BOM이 있어야 엑셀이 한글을 UTF-8로 읽는다)
@@ -160,7 +162,7 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
         {KPIS.map((k, i) => {
           const pred = (o: Observation) => matchesQuery(o, f.q) && k.pred(o);
           return <KpiCard key={k.label} hero={i === 0} label={k.label} unit="건" value={base.filter(k.pred).length} tone={k.tone}
-            delta={dayDelta(obs, f, pred)} values={trend(obs, f, pred)} active={k.active} onClick={() => setFilters(k.active ? { ...f, pass: new Set(PASS_KEYS), act: new Set(ACTIONS) } : { ...f, ...k.apply })} />;
+            delta={dayDelta(obs, f, pred)} values={trend(obs, f, pred)} active={k.active} onClick={() => pickKpi(k)} />;
         })}
       </div>
       <div className="toolbar">
@@ -203,6 +205,14 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
           <button type="button" className="krds-btn small tertiary" onClick={() => setPicked(new Set())}>선택 해제</button>
         </div>
       )}
+      <div className="view-seg" role="group" aria-label="표에 보일 관측">
+        {KPIS.map((k) => (
+          <button key={k.label} type="button" aria-pressed={k.active} onClick={() => !k.active && pickKpi(k)}>
+            {k.label === '전체 관측' ? '전체' : k.label} <span>{base.filter(k.pred).length}</span>
+          </button>
+        ))}
+        {!KPIS.some((k) => k.active) && <span className="view-seg-note">판정·처리 상태 조건 적용 중</span>}
+      </div>
       {/* KRDS 표: krds-table-wrap > table.tbl.col.data */}
       <div className="krds-table-wrap list-table" ref={tableRef}>
         <table className="tbl col data">
@@ -216,7 +226,7 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
           <thead>
             <tr>
               <th scope="col" className="cb"><div className="krds-form-check"><input type="checkbox" id="pick-all" checked={allOn} onChange={(e) => setPicked(e.target.checked ? new Set(shown.map((o) => o.id)) : new Set())} /><label htmlFor="pick-all"><span className="vh">이 페이지 모두 선택</span></label></div></th>
-              {sortTh('time', '촬영 시각')}
+              {sortTh('time', '접수 시각')}
               <th scope="col">수집 경로</th>{sortTh('area', '행정구역')}<th scope="col">위치</th><th scope="col">AI 판정</th>
               {sortTh('risk', '위험도')}<th scope="col">처리 유형</th>
               <th scope="col" title="같은 지점의 최근 관측으로 본 흐름: 해소됨 · 상습(다시 나타남) · 지속(계속 그대로) · 확인 대기(요청 후 다음 관측 대기)">현장 추이</th>
@@ -228,7 +238,7 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
               return (
                 <tr key={o.id} className={picked.has(o.id) ? 'on' : ''} onClick={() => onOpen(o.id)}>
                   <td className="cb" onClick={(e) => e.stopPropagation()}><div className="krds-form-check"><input type="checkbox" id={`pick-${o.id}`} checked={picked.has(o.id)} onChange={(e) => togglePick(o.id, e.target.checked)} /><label htmlFor={`pick-${o.id}`}><span className="vh">{o.place} 선택</span></label></div></td>
-                  <td className="c-time">{fmtTime(o.t)}</td>
+                  <td className="c-time">{fmtTime(o.received ?? o.t)}{capturedEarlier(o) && <span className="t-shot">촬영 {fmtTime(o.t)}</span>}</td>
                   <td className="c-src">{SRC_LABEL[o.src]}</td>
                   <td className="c-area">{o.area ?? <span className="small">—</span>}</td>
                   {/* 행 전체 클릭(마우스)과 별도로, 키보드로도 열 수 있게 위치를 버튼으로 */}

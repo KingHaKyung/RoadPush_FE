@@ -52,6 +52,8 @@ export function periodBounds(f: Pick<Filters, 'period' | 'range'>, now = DEMO_NO
  * 시민이 며칠 전 사진을 앨범에서 올려도 '최근 3일'·'어제 대비'에 들어오게 한다 (화면에 보이는 시각은 촬영 시각 그대로)
  */
 export const obsTime = (o: Pick<Observation, 't' | 'received'>) => new Date(o.received ?? o.t).getTime();
+/** 촬영이 접수보다 1시간 넘게 앞섰는지 (앨범의 지난 사진). 그럴 때만 화면에 촬영 시각을 따로 적는다 */
+export const capturedEarlier = (o: Pick<Observation, 't' | 'received'>) => obsTime(o) - new Date(o.t).getTime() > 36e5;
 
 export function inPeriod(o: Observation, f: Pick<Filters, 'period' | 'range'>, now = DEMO_NOW): boolean {
   const [a, b] = periodBounds(f, now);
@@ -73,9 +75,9 @@ const passOk = (o: Observation, f: Filters) => (o.analyzing ? f.pass.size === PA
 export const matchesFilters = (o: Observation, f: Filters) =>
   inPeriod(o, f) && f.src.has(o.src) && passOk(o, f) && f.act.has(o.action) && (!f.dept || o.dept === f.dept) && matchesQuery(o, f.q);
 
-/** 정렬 비교: 날짜는 최신순, 행정구역은 가나다순, 위험도는 높은 순(점수 없음은 뒤). 같으면 최신순 */
+/** 정렬 비교: 날짜는 최근 접수순, 행정구역은 가나다순, 위험도는 높은 순(점수 없음은 뒤). 같으면 최근 접수순 */
 export function compareObs(sort: SortKey) {
-  const byTime = (a: Observation, b: Observation) => b.t.localeCompare(a.t);
+  const byTime = (a: Observation, b: Observation) => obsTime(b) - obsTime(a) || b.t.localeCompare(a.t);
   if (sort === 'area') return (a: Observation, b: Observation) => (a.area ?? '').localeCompare(b.area ?? '', 'ko') || byTime(a, b);
   if (sort === 'risk') return (a: Observation, b: Observation) => (b.risk ?? -1) - (a.risk ?? -1) || byTime(a, b);
   return byTime;

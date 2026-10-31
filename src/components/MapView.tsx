@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ACTIONS, DEPTS, OPEN_ACTIONS, CL_KIND, CL_PAVE, PASS, PASS_KEYS, PIN_COLOR, RANK, SORT_LABEL, SRC_LABEL } from '../lib/constants';
+import { ACTIONS, DEMO_NOW, DEPTS, OPEN_ACTIONS, CL_KIND, CL_PAVE, PASS, PASS_KEYS, PIN_COLOR, RANK, SORT_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
 import { dayDelta, kpiPred, siteCounts, trend as trendOf, type KpiKey } from '../lib/stats';
-import { compareObs, effPass, inPeriod, nodeName, pinKey, pinsOf, segById } from '../lib/segments';
+import { addDays, compareObs, effPass, inPeriod, nodeName, pinKey, pinsOf, RANGE_MAX_DAYS, segById, ymd } from '../lib/segments';
 import type { Action, Filters, Observation, ObservationPatch, Pass, Pin, SortKey, Source } from '../types';
 import { AreaBars, KpiCard, SectionTitle } from './Dashboard';
 import { EmptyState } from './EmptyState';
@@ -10,6 +10,7 @@ import { RiskMap } from './map/RiskMap';
 import { ObservationDetail } from './ObservationDetail';
 import { PeriodToggle } from './PeriodToggle';
 import { PassDot, Pill } from './Pill';
+import { MoreButton } from './MoreButton';
 import { TrendIcon } from './RouteBadge';
 
 interface Props {
@@ -58,9 +59,81 @@ const readSideW = (): SideW => {
   try { return { ...SIDE_DEFAULT, ...JSON.parse(localStorage.getItem(SIDE_KEY) ?? '{}') }; } catch { return SIDE_DEFAULT; }
 };
 
+/**
+ * 같은 지점 관측 탭 한 줄. 넘치면 가로로 스크롤하고, 양 끝을 흐리게 + ‹ › 버튼으로 남은 칸이 있다는 걸 보여 준다.
+ * 마우스 휠(세로)도 가로로 넘기고, 고른 관측 칸은 화면 안으로 끌어온다
+ */
+function TabScroller({ activeId, children }: { activeId?: string; children: React.ReactNode }) {
+  const ref = useRef<HTMLUListElement>(null);
+  const [edge, setEdge] = useState({ l: false, r: false });
+  const check = () => {
+    const el = ref.current; if (!el) return;
+    setEdge({ l: el.scrollLeft > 2, r: el.scrollLeft + el.clientWidth < el.scrollWidth - 2 });
+  };
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    check();
+    const ro = new ResizeObserver(check); ro.observe(el);
+    // 세로 휠을 가로로 (넘칠 때만, 끝에 닿으면 패널 세로 스크롤로 넘긴다. 옆으로 굴리는 휠·터치패드는 브라우저가 알아서).
+    // 휠은 바로 움직인다 (부드럽게 하면 휠 한 칸마다 애니메이션이 새로 시작돼 앞의 이동이 묻힌다)
+    const wheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      const max = el.scrollWidth - el.clientWidth;
+      if ((dy < 0 && el.scrollLeft <= 0) || (dy > 0 && el.scrollLeft >= max - 1)) return;
+      e.preventDefault(); el.scrollLeft = Math.max(0, Math.min(max, el.scrollLeft + dy));
+    };
+    // 마우스로 끌어서 넘기기. 5px 넘게 끌었으면 놓을 때의 클릭(탭 고르기)은 무시한다
+    let drag: { x: number; left: number; moved: boolean } | null = null;
+    const down = (e: PointerEvent) => { if (e.pointerType === 'mouse' && e.button === 0) drag = { x: e.clientX, left: el.scrollLeft, moved: false }; };
+    const move = (e: PointerEvent) => {
+      if (!drag) return;
+      const dx = e.clientX - drag.x;
+      if (!drag.moved && Math.abs(dx) < 5) return;
+      if (!drag.moved) { drag.moved = true; el.setPointerCapture(e.pointerId); el.classList.add('dragging'); }
+      el.scrollLeft = drag.left - dx;
+    };
+    const up = () => {
+      if (drag?.moved) el.addEventListener('click', (ev) => { ev.stopPropagation(); ev.preventDefault(); }, { capture: true, once: true });
+      drag = null; el.classList.remove('dragging');
+    };
+    el.addEventListener('wheel', wheel, { passive: false });
+    el.addEventListener('pointerdown', down);
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    return () => {
+      ro.disconnect(); el.removeEventListener('wheel', wheel);
+      el.removeEventListener('pointerdown', down); el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
+    };
+  }, []);
+  // 고른 칸이 가려져 있으면 그 칸까지 가로로만 옮긴다 (scrollIntoView는 패널 세로 위치까지 건드려서 쓰지 않는다)
+  useEffect(() => {
+    const el = ref.current, li = el?.querySelector<HTMLElement>('.active'); if (!el || !li) return;
+    const l = li.offsetLeft - el.offsetLeft, r = l + li.offsetWidth;
+    if (l < el.scrollLeft) el.scrollTo({ left: l - 24, behavior: 'smooth' });
+    else if (r > el.scrollLeft + el.clientWidth) el.scrollTo({ left: r - el.clientWidth + 24, behavior: 'smooth' });
+  }, [activeId]);
+  const by = (dir: 1 | -1) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.7, behavior: 'smooth' });
+  return (
+    <div className={`krds-tab-area site-tab-area${edge.l ? ' more-l' : ''}${edge.r ? ' more-r' : ''}`}>
+      <div className="tab line"><ul role="tablist" ref={ref} onScroll={check}>{children}</ul></div>
+      {edge.l && <button type="button" className="tab-scroll l" aria-label="이전 관측 더 보기" tabIndex={-1} onClick={() => by(-1)}>‹</button>}
+      {edge.r && <button type="button" className="tab-scroll r" aria-label="다음 관측 더 보기" tabIndex={-1} onClick={() => by(1)}>›</button>}
+    </div>
+  );
+}
+
 export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey, selectSeg, setSelObs, onUpdate }: Props) {
   /** 우선 점검 지점 정렬 (관측 목록과 따로, 기본은 위험도순) */
   const [qSort, setQSort] = useState<SortKey>('risk');
+  /** 우선 점검 지점은 20곳씩 (조건·정렬을 바꾸면 처음부터) */
+  const Q_STEP = 20;
+  const [qN, setQN] = useState(Q_STEP);
+  const qKey = `${f.q}|${f.period}|${f.range.from}|${f.range.to}|${qSort}|${[...f.pass, ...f.act, ...f.src].join()}|${f.dept}`;
+  const [lastQKey, setLastQKey] = useState(qKey);
+  if (lastQKey !== qKey) { setLastQKey(qKey); setQN(Q_STEP); }
   /** 목록에서 마우스를 올리거나 키보드로 고른 지점 (지도에서 강조) */
   const [hoverPin, setHoverPin] = useState<string | null>(null);
   const [filterOpen, setFilterOpen] = useState(readFilterOpen);
@@ -80,6 +153,11 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
   const sites = useMemo(() => pinsOf(obs, { ...f, pass: new Set(PASS_KEYS), act: new Set(ACTIONS) }), [obs, f]);
   const pins = useMemo(() => pinsOf(obs, f), [obs, f]);
   const cnt = (p: Pass) => sites.filter((s) => s.pass === p).length;
+  /** 지도에 찍을 지점이 없을 때: 기간 안에 관측은 있는데 조건에 걸렸는지, 기간 안에 아예 없는지 */
+  const periodHasSites = useMemo(() => !pins.length && pinsOf(obs, { ...f, q: '', dept: '', pass: new Set(PASS_KEYS), act: new Set(ACTIONS), src: new Set<Source>(['cctv', 'car', 'upload']) }).length > 0, [obs, f, pins.length]);
+  const resetConds = () => setFilters({ ...f, q: '', dept: '', pass: new Set(PASS_KEYS), act: new Set(ACTIONS), src: new Set<Source>(['cctv', 'car', 'upload']) });
+  const widen = () => setFilters({ ...f, period: 'range', range: { from: addDays(ymd(DEMO_NOW), -(RANGE_MAX_DAYS - 1)), to: ymd(DEMO_NOW) } });
+  const periodText = f.period === 'today' ? '오늘' : f.period === '3d' ? '최근 3일 동안' : `${f.range.from} ~ ${f.range.to} 동안`;
 
   const toggle = <K extends 'pass' | 'act' | 'src'>(key: K, v: string, on: boolean) => {
     const s = new Set(f[key] as Set<string>);
@@ -110,20 +188,37 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
     if (a >= 0 && b >= 0) trend = b < a ? <span className="trend good">이전 관측보다 개선</span> : b > a ? <span className="trend bad">이전 관측보다 악화</span> : <span className="trend">이전 관측과 같음</span>;
   }
 
-  // 같은 지점의 관측 목록은 보던 관측 아래에 접어 둔다 (펼치면 다른 관측으로 바꿔 볼 수 있다)
-  const related = list.length > 1 && (
-    <details className="od-more">
-      <summary>{site ? '이 지점' : '이 링크'} 관측 <span>{list.length}건</span>{trend}</summary>
-      <div className="obslist">
-        {list.map((o) => (
-          <button key={o.id} type="button" className={`orow${o === cur ? ' on' : ''}`} onClick={() => setSelObs(o.id)}>
-            <PassDot pass={effPass(o)} /><span>{fmtTime(o.t)}</span><span className="small">{SRC_LABEL[o.src]} {o.dev}</span>
-          </button>
-        ))}
+  // 같은 지점의 관측 목록: 상단 탭 메뉴로 전환해서 볼 수 있게 한다
+  const siteTabs = list.length > 1 && (
+    <div className="site-tabs" aria-label="이 지점 관측 목록">
+      <div className="site-tabs-head">
+        <span className="site-tabs-title"><b>{site ? '이 지점' : '이 링크'} 관측</b><span className="cnt">{list.length}건</span></span>
+        {trend}
       </div>
-    </details>
+      <TabScroller activeId={cur?.id}>
+            {list.map((o, idx) => {
+              const active = o.id === cur.id;
+              return (
+                <li key={o.id} className={active ? 'active' : undefined}>
+                  <button
+                    type="button"
+                    className="btn-tab"
+                    role="tab"
+                    aria-selected={active}
+                    title={`${fmtTime(o.t)} · ${SRC_LABEL[o.src]} ${o.dev}`}
+                    onClick={() => setSelObs(o.id)}
+                  >
+                    <PassDot pass={effPass(o)} />
+                    <span className="tab-time">{fmtTime(o.t)}</span>
+                    {idx === 0 && <span className="tab-badge">최신</span>}
+                  </button>
+                </li>
+              );
+            })}
+      </TabScroller>
+    </div>
   );
-  const obsList = cur && <ObservationDetail key={cur.id} o={cur} onUpdate={(p, l) => onUpdate(cur.id, p, l)} related={related} />;
+  const obsList = cur && <ObservationDetail key={cur.id} o={cur} onUpdate={(p, l) => onUpdate(cur.id, p, l)} />;
 
   // 오른쪽 패널: 상세(지점·링크를 골랐을 때)면 넓게
   const mode: keyof SideW = sg || selO ? 'detail' : 'list';
@@ -191,6 +286,16 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
 
       <div className="mapwrap">
         <RiskMap pins={pins} selectedPin={site} hoverPin={hoverPin} onPickPin={(p) => { setHoverPin(null); pickPin(p); }} selected={selSeg} onSelect={(id) => selectSeg(id)} focusKey={focusKey} />
+        {!pins.length && (
+          <div className="map-empty">
+            {periodHasSites ? (
+              <EmptyState kind="search" small title="조건에 맞는 지점이 없습니다" desc="판정·처리 상태·부서·검색어 조건을 풀면 지점이 다시 보입니다." action={{ label: '조건 초기화', onClick: resetConds }} />
+            ) : (
+              <EmptyState kind="map" small title={`${periodText} 들어온 관측이 없습니다`} desc="기간을 넓히면 이전 관측을 지도에 표시합니다."
+                action={f.period === 'range' && f.range.from <= addDays(ymd(DEMO_NOW), -(RANGE_MAX_DAYS - 1)) ? undefined : { label: '최근 3개월 보기', onClick: widen }} />
+            )}
+          </div>
+        )}
         <div className="maptools">
           {!filterOpen && <button type="button" className="krds-btn xsmall secondary" onClick={() => showFilters(true)}>필터</button>}
           <div className="box map-legend">
@@ -216,7 +321,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
                 {(Object.keys(SORT_LABEL) as SortKey[]).map((k) => <option key={k} value={k}>{SORT_LABEL[k]}</option>)}
               </select>
             </div>
-            {queue.length ? queue.map((p) => (
+            {queue.length ? queue.slice(0, qN).map((p) => (
               <button key={p.key} type="button" className="qitem" onClick={() => { setHoverPin(null); pickPin(p, true); }}
                 onMouseEnter={() => setHoverPin(p.key)} onMouseLeave={() => setHoverPin(null)} onFocus={() => setHoverPin(p.key)} onBlur={() => setHoverPin(null)}>
                 {/* 위험도 사각형: 판정 색 옅은 바탕 + 진한 숫자 (판정과 위험도를 한 번에) */}
@@ -236,11 +341,13 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
             ) : (
               <EmptyState kind="map" title="지금 점검할 지점이 없습니다" desc="단절·좁아짐·판단 유보 지점 중 처리가 끝나지 않은 곳이 위험도순으로 올라옵니다." />
             )}
+            <MoreButton shown={qN} total={queue.length} step={Q_STEP} onMore={() => setQN((n) => n + Q_STEP)} />
           </div>
         ) : site && cur ? (
           <>
             <button type="button" className="krds-btn small text back" onClick={() => selectSeg(null)}>← 우선 점검 지점</button>
-            {/* 지점 정보(위치·장비·주소·가까운 도로)는 아래 관측 상세 머리에 함께 나온다 */}
+            {/* 같은 지점에 관측이 여러 건이면 상단에서 탭 메뉴로 전환 */}
+            {siteTabs}
             {obsList}
           </>
         ) : sg ? (
@@ -270,6 +377,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
                 {sg.a && <><dt>노드</dt><dd className="small">{sg.a} → {sg.b}</dd></>}
               </dl>
             )}
+            {siteTabs}
             {cur ? obsList : !sg.cl && <p className="small">수집된 관측 없음</p>}
           </>
         ) : null}

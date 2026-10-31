@@ -31,11 +31,10 @@ export function PeriodToggle({ f, onChange }: { f: Pick<Filters, 'period' | 'ran
       {f.period === 'range' && (
         <div className="period-range" role="group" aria-label={`기간 선택 (최대 ${Math.round(RANGE_MAX_DAYS / 30)}개월)`}>
           <label className="vh" htmlFor={`${uid}-from`}>시작일</label>
-          <input className="krds-input small" type="date" id={`${uid}-from`} value={f.range.from} min={addDays(today, -365)} max={today} onChange={(e) => setFrom(e.target.value)} />
+          <input className="krds-input small" type="date" id={`${uid}-from`} value={f.range.from} min={addDays(today, -365)} max={today} title="최대 3개월까지 고를 수 있습니다" onChange={(e) => setFrom(e.target.value)} />
           <span aria-hidden="true">~</span>
           <label className="vh" htmlFor={`${uid}-to`}>종료일</label>
-          <input className="krds-input small" type="date" id={`${uid}-to`} value={f.range.to} min={addDays(today, -365)} max={today} onChange={(e) => setTo(e.target.value)} />
-          <span className="period-hint">최대 3개월</span>
+          <input className="krds-input small" type="date" id={`${uid}-to`} value={f.range.to} min={f.range.from} max={[addDays(f.range.from, RANGE_MAX_DAYS - 1), today].sort()[0]} title="최대 3개월까지 고를 수 있습니다" onChange={(e) => setTo(e.target.value)} />
         </div>
       )}
     </>
