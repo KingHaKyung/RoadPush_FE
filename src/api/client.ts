@@ -48,6 +48,8 @@ export interface AnalysisResponse {
 export const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim().replace(/\/+$/, '') || undefined;
 /** 관제 화면이 백엔드를 쓰는지 (개발 중 ?api=sample 이면 주소가 있어도 예시 데이터) */
 export const USE_API = !!API_BASE && devFlag('api') !== 'sample';
+/** 처리·검수·메모를 남긴 사람. 로그인이 아직 없어 한 이름으로 남긴다 (담당 부서와 헷갈리지 않게 부서 이름은 쓰지 않는다) */
+export const ACTOR = '관제 담당자';
 
 /** 응답 코드를 함께 담은 오류 (409 같은 '지금은 할 수 없음'을 연결 실패와 구분한다) */
 export class ApiError extends Error {
@@ -78,7 +80,7 @@ export const ACTION_CODE: Record<Action, string> = {
 export const setActions = (ids: string[], action: Action, dept: string | null, note?: string) =>
   call<AnalysisResponse[]>('/observations/bulk-action', {
     method: 'POST',
-    body: JSON.stringify({ observation_ids: ids, state: ACTION_CODE[action], dept, content: note, actor: '교통행정과' }),
+    body: JSON.stringify({ observation_ids: ids, state: ACTION_CODE[action], dept, content: note, actor: ACTOR }),
   });
 
 /** 사람 판정. comment는 오탐 사유 등 (백엔드 history에 '판정 수정 → … · 사유'로 남는다) */
@@ -86,12 +88,12 @@ export const review = (id: string, human: Pass | null, comment?: string) =>
   call<AnalysisResponse>(`/observations/${id}/reviews`, {
     method: 'POST',
     body: JSON.stringify(human
-      ? { status: 'corrected', human_passability: human === 'hold' ? 'undetermined' : human, comment, reviewer: '교통행정과' }
-      : { status: 'confirmed', comment, reviewer: '교통행정과' }),
+      ? { status: 'corrected', human_passability: human === 'hold' ? 'undetermined' : human, comment, reviewer: ACTOR }
+      : { status: 'confirmed', comment, reviewer: ACTOR }),
   });
 /** 판정 취소 → 미검수 (검수가 없으면 409) */
 export const cancelReview = (id: string) =>
-  call<AnalysisResponse>(`/observations/${id}/reviews/cancel`, { method: 'POST', body: JSON.stringify({ reviewer: '교통행정과' }) });
+  call<AnalysisResponse>(`/observations/${id}/reviews/cancel`, { method: 'POST', body: JSON.stringify({ reviewer: ACTOR }) });
 
 export const reanalyze = (id: string) => call<AnalysisResponse>(`/observations/${id}/reanalyze`, { method: 'POST', body: '{}' });
 /** 재분석 요청 취소 (시작 전일 때만. 이미 분석 중이면 409) */
@@ -100,7 +102,7 @@ export const cancelReanalyze = (id: string) =>
 
 /** 메모 (처리 상태·검수는 바꾸지 않고 history에 '메모: …'로 남는다) */
 export const addNote = (id: string, content: string) =>
-  call<unknown>(`/observations/${id}/notes`, { method: 'POST', body: JSON.stringify({ content, author: '교통행정과' }) });
+  call<unknown>(`/observations/${id}/notes`, { method: 'POST', body: JSON.stringify({ content, author: ACTOR }) });
 
 const toPass = (p: ApiPass | null): Pass => (p === null || p === 'undetermined' ? 'hold' : p);
 const COND: Condition[] = ['night', 'rain', 'occluded', 'mixed', 'boundary_review', 'boundary_failed', 'surface_uncertain', 'occupancy_unverified', 'low_coverage'];

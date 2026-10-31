@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { addNote, ApiError, cancelReanalyze, cancelReview, fetchObservations, reanalyze, review, setActions, toObservation, USE_API, type AnalysisResponse } from '../api/client';
+import { ACTOR, addNote, ApiError, cancelReanalyze, cancelReview, fetchObservations, reanalyze, review, setActions, toObservation, USE_API, type AnalysisResponse } from '../api/client';
 import { SEG_OF } from '../data/nodelink';
 import { SAMPLE_OBSERVATIONS } from '../data/observations';
 import type { HistoryEntry, Observation, ObservationPatch, Persistence, SiteCheck } from '../types';
@@ -94,8 +94,21 @@ function useSampleObservations() {
     smooth(() => setSaved((prev) => {
       const next = { ...prev };
       for (const id of Array.isArray(ids) ? ids : [ids]) {
-        const cur = { ...(next[id] ?? {}), ...patch };
-        if (logTxt) cur.log = [...(cur.log ?? []), { t: DEMO_NOW.toISOString(), txt: logTxt, by: '교통행정과' }];
+        const { memoEdit, ...rest } = patch;
+        const cur = { ...(next[id] ?? {}), ...rest };
+        // 메모 고치기: 지우지 않고 바꾸고, 고친 시각만 남긴다
+        if (memoEdit) {
+          cur.log = (cur.log ?? []).map((e) => (e.id === memoEdit.id ? { ...e, memo: memoEdit.text, editedAt: DEMO_NOW.toISOString() } : e));
+        }
+        if (logTxt) {
+          // '… · 메모: 내용'이면 메모를 따로 둬서 나중에 메모만 고칠 수 있게
+          const parts = logTxt.split(' · ');
+          const m = parts.find((p) => p.startsWith('메모: '));
+          cur.log = [...(cur.log ?? []), {
+            id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, t: DEMO_NOW.toISOString(), by: ACTOR,
+            txt: parts.filter((p) => p !== m).join(' · '), ...(m ? { memo: m.slice('메모: '.length) } : {}),
+          }];
+        }
         next[id] = cur;
       }
       save(next);
@@ -165,7 +178,11 @@ function useApiObservations() {
         const cur = rowsRef.current.find((a) => a.observation_id === list[0]);
         const action = patch.action ?? (cur?.action.label as ObservationPatch['action']) ?? '미처리';
         const dept = patch.dept ?? cur?.action.dept ?? null;
-        await setActions(list, action!, dept === '미배정' ? null : dept, logTxt);
+        // 처리 상태·부서만 저장한다 (백엔드 이력이 '처리 상태: 조치 중 (청소행정과)'로 적는다).
+        // 같이 쓴 메모는 메모 테이블(observation_notes)에 따로 남긴다: 메모를 한 곳에 모아야 나중에 고칠 수 있다
+        await setActions(list, action!, dept === '미배정' ? null : dept);
+        const memo = logTxt?.split(' · ').find((p) => p.startsWith('메모: '))?.slice('메모: '.length);
+        if (memo) for (const id of list) await addNote(id, memo);
       }
       if (patch.review !== undefined && patch.review !== '미검수') {
         // 오탐 처리면 사유를 함께 보낸다

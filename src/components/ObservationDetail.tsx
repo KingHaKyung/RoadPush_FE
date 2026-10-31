@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ACTIONS, DEPTS, NO_DEPT, PASS, RANK, routeName, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
 import { capturedEarlier, effPass, segById } from '../lib/segments';
@@ -32,19 +32,61 @@ export function ObservationDetail({ o, onUpdate, layout = 'panel', extra, relate
   const [fpOpen, setFpOpen] = useState(false);
   const uid = useId();
   const road = segById.get(o.seg);
-  const addMemo = () => {
+  /**
+   * 담당 부서·처리 상태·메모는 고르는 동안 저장하지 않고, '저장'을 눌렀을 때 한 번에 저장한다
+   * (전에는 고를 때마다 저장돼 처리 이력이 여러 줄 쌓였다). 다른 곳에서 바뀌면(요청 글 복사 등) 그 값으로 맞춘다
+   */
+  const [dept, setDept] = useState(o.dept);
+  const [act, setAct] = useState<Action>(o.action);
+  useEffect(() => { setDept(o.dept); setAct(o.action); }, [o.dept, o.action]);
+  const dirty = dept !== o.dept || act !== o.action || !!memo.trim();
+  const save = () => {
     const v = memo.trim();
-    if (!v) return;
-    onUpdate({}, `메모: ${v}`);
+    if (dept === o.dept && act === o.action) {
+      if (v) onUpdate({}, `메모: ${v}`);
+    } else {
+      // 한 번의 저장 = 이력 한 줄. 바뀐 결과만 짧게 (이전 값은 바로 아래 이력에 있다)
+      const what = [dept !== o.dept && `담당 부서: ${dept}`, act !== o.action && `처리 상태: ${act}`, v && `메모: ${v}`].filter(Boolean).join(' · ');
+      onUpdate({ ...(dept !== o.dept ? { dept } : {}), ...(act !== o.action ? { action: act } : {}) }, what);
+    }
     setMemo('');
   };
-  // 원인마다 기본 부서 (둘 이상이면 같은 요청 양식을 모든 부서에 보낸다). 미분류(장애물)는 기본 부서가 없어 뺀다
+  const revert = () => { setDept(o.dept); setAct(o.action); setMemo(''); };
+  /** 이력 메모 고치기: 고치는 중인 기록 번호와 글 */
+  const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
+  const saveEdit = () => {
+    if (!editing) return;
+    const v = editing.text.trim();
+    const e = o.hist.find((h) => h.id === editing.id);
+    if (v && v !== e?.memo) onUpdate({ memoEdit: { id: editing.id, text: v } });
+    setEditing(null);
+  };
+  // 원인마다 기본 부서 (둘 이상이면 같은 글을 모든 부서에 보낸다). 미분류(장애물)는 기본 부서가 없어 뺀다
   const routeDepts = [...new Set(o.routes.map((r) => r.dept))].filter((d) => d !== NO_DEPT);
-  // 기존 행정 시스템·메신저에 붙여 넣을 요청 양식을 복사하고 '현장점검 요청'으로 기록. 부서가 비어 있으면 첫 원인의 기본 부서로
+  /** 복사한 글 미리 보기: copied는 자동 복사 결과 (null: 복사 중, false: 실패라 직접 복사하게 글을 골라 둔다) */
+  const [sent, setSent] = useState<{ text: string; copied: boolean | null } | null>(null);
+  const textRef = useRef<HTMLTextAreaElement>(null);
+  /**
+   * 클립보드에 넣고 결과를 미리 보기에 적는다. 브라우저가 권한 창 등으로 답을 안 주면 멈춘 것처럼 보여서
+   * 1.5초 안에 답이 없으면 실패로 보고 직접 복사하게 한다
+   */
+  const copy = (text: string) => {
+    setSent({ text, copied: null });
+    const fail = () => { setSent({ text, copied: false }); setTimeout(() => textRef.current?.select(), 0); };
+    if (!navigator.clipboard) { fail(); return; }
+    let settled = false;
+    const timer = setTimeout(() => { if (!settled) { settled = true; fail(); } }, 1500);
+    navigator.clipboard.writeText(text).then(
+      () => { if (!settled) { settled = true; clearTimeout(timer); setSent({ text, copied: true }); } },
+      () => { if (!settled) { settled = true; clearTimeout(timer); fail(); } },
+    );
+  };
+  // 업무 메신저·새올에 붙여 넣을 글을 복사하고 '현장점검 요청'으로 기록. 부서가 비어 있으면 첫 원인의 기본 부서로.
+  // 무엇이 복사됐는지 보이게 글을 바로 아래에 펼친다
   const deliver = () => {
     const dept = o.dept === NO_DEPT ? routeDepts[0] ?? NO_DEPT : o.dept;
-    const done = () => onUpdate({ action: '현장점검 요청', ...(dept !== o.dept ? { dept } : {}) }, `요청 양식 복사 · 현장점검 요청 (${[...new Set([dept, ...routeDepts])].join(', ')})`);
-    navigator.clipboard?.writeText(requestText(o)).then(done, done);
+    copy(requestText({ ...o, dept }));
+    onUpdate({ action: '현장점검 요청', ...(dept !== o.dept ? { dept } : {}) }, `${[...new Set([dept, ...routeDepts])].join('·')}에 현장점검 요청`);
   };
   const links = [...new Map(o.routes.flatMap((r) => (r.link ? [[r.link.url, r.link] as const] : []))).values()];
   // 오탐: 사람 판정을 '통과 가능'으로 바꾼다. 사유는 검수 기록에 함께 저장된다
@@ -52,7 +94,8 @@ export function ObservationDetail({ o, onUpdate, layout = 'panel', extra, relate
     onUpdate({ human: 'passable', review: '수정' }, `오탐 처리: ${why}`);
     setFpOpen(false);
   };
-  const hist = [...o.hist].sort((a, b) => b.t.localeCompare(a.t));
+  // 최신이 위로. 시각이 같으면(예시 데이터는 모두 같은 '지금') 나중에 남긴 것이 위로
+  const hist = [...o.hist].reverse().sort((a, b) => b.t.localeCompare(a.t));
 
   return (
     <div className={`od od-${layout}`}>
@@ -103,11 +146,26 @@ export function ObservationDetail({ o, onUpdate, layout = 'panel', extra, relate
             {routeDepts.length > 1 && <p className="small">{routeDepts.join(' · ')} 모두에 전달</p>}
             <div className="route-actions">
               <button type="button" className="krds-btn small primary" onClick={deliver}>
-                {o.action !== '미처리' ? '요청 양식 다시 복사' : '요청 양식 복사'}
+                처리 요청 양식 복사하기
               </button>
               {links.map((l) => <a key={l.url} className="krds-btn small secondary" href={l.url} target="_blank" rel="noreferrer">{l.label} 열기</a>)}
               <button type="button" className={`krds-btn small tertiary${fpOpen ? ' fp-on' : ''}`} aria-expanded={fpOpen} onClick={() => setFpOpen(!fpOpen)}>오탐 처리</button>
             </div>
+            {sent && (
+              <div className="req-preview" role="status">
+                <p className={`req-msg${sent.copied === false ? ' warn' : ''}`}>
+                  {sent.copied === null ? '복사하는 중입니다.' : sent.copied
+                    ? '아래 처리 요청 양식을 복사했습니다. 업무 메신저나 새올 등에 붙여 넣으세요 (Ctrl+V).'
+                    : '자동으로 복사하지 못했습니다. 아래 양식이 선택돼 있으니 Ctrl+C로 복사하세요.'}
+                </p>
+                <label className="vh" htmlFor={`${uid}-req`}>처리 요청 양식</label>
+                <textarea ref={textRef} id={`${uid}-req`} className="req-text" readOnly value={sent.text} rows={Math.min(14, sent.text.split('\n').length)} onFocus={(e) => e.currentTarget.select()} />
+                <div className="req-btns">
+                  <button type="button" className="krds-btn xsmall secondary" onClick={() => copy(sent.text)}>다시 복사</button>
+                  <button type="button" className="krds-btn xsmall text" onClick={() => setSent(null)}>닫기</button>
+                </div>
+              </div>
+            )}
             {/* 오탐 처리의 하위 선택: 주요 버튼보다 한 단계 가볍게 */}
             {fpOpen && (
               <div className="fp-panel" role="group" aria-labelledby={`${uid}-fp`}>
@@ -122,19 +180,25 @@ export function ObservationDetail({ o, onUpdate, layout = 'panel', extra, relate
 
         <div className="form">
           <label htmlFor={`${uid}-dept`}>담당 부서</label>
-          <select className="krds-form-select small" id={`${uid}-dept`} value={o.dept} onChange={(e) => onUpdate({ dept: e.target.value }, `담당 부서: ${o.dept} → ${e.target.value}`)}>
+          <select className="krds-form-select small" id={`${uid}-dept`} value={dept} onChange={(e) => setDept(e.target.value)}>
             {DEPTS.map((d) => <option key={d}>{d}</option>)}
           </select>
           <label htmlFor={`${uid}-act`}>처리 상태</label>
-          <select className="krds-form-select small" id={`${uid}-act`} value={o.action} onChange={(e) => onUpdate({ action: e.target.value as Action }, `처리 상태: ${e.target.value}`)}>
+          <select className="krds-form-select small" id={`${uid}-act`} value={act} onChange={(e) => setAct(e.target.value as Action)}>
             {ACTIONS.map((a) => <option key={a}>{a}</option>)}
           </select>
           <div className="full">
             <label className="vh" htmlFor={`${uid}-memo`}>처리 메모</label>
             <input className="krds-input small" id={`${uid}-memo`} value={memo} placeholder="처리 메모 (예: 운영사 수거 요청 접수번호)"
-              onChange={(e) => setMemo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addMemo()} />
-            <button type="button" className="krds-btn small primary" onClick={addMemo}>기록</button>
+              onChange={(e) => setMemo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && dirty && save()} />
+            <button type="button" className="krds-btn small primary" onClick={save} disabled={!dirty}>저장</button>
           </div>
+          {dirty && (
+            <p className="form-dirty full" role="status">
+              저장하지 않은 변경이 있습니다. '저장'을 눌러야 처리 이력에 남습니다.
+              <button type="button" className="krds-btn xsmall text" onClick={revert}>되돌리기</button>
+            </p>
+          )}
         </div>
 
         {/* 매번 보지 않아도 되는 정보는 접어 둔다 */}
@@ -142,8 +206,26 @@ export function ObservationDetail({ o, onUpdate, layout = 'panel', extra, relate
           <summary>처리 이력 <span>{hist.length}건</span></summary>
           <ol className="hist">
             {hist.map((e, i) => (
-              <li key={i} className={e.ai ? 'ai' : ''}>
-                <time>{fmtTime(e.t)}{e.by ? ` · ${e.by}` : e.ai ? ' · 시스템' : ''}</time>{e.txt}
+              <li key={e.id ?? i} className={e.ai ? 'ai' : ''}>
+                <time>{fmtTime(e.t)}{e.by ? ` · ${e.by}` : e.ai ? ' · 시스템' : ''}</time>
+                {e.txt}
+                {e.memo != null && editing?.id !== e.id && (
+                  <span className="hist-memo">
+                    {e.txt && ' · '}메모: {e.memo}
+                    {e.editedAt && <span className="hist-edited" title={`${fmtTime(e.editedAt)} 수정`}>(수정됨)</span>}
+                    {e.id && <button type="button" className="krds-btn xsmall text hist-fix" onClick={() => setEditing({ id: e.id!, text: e.memo! })}>메모 고치기</button>}
+                  </span>
+                )}
+                {editing && editing.id === e.id && (
+                  <span className="hist-editor">
+                    <label className="vh" htmlFor={`${uid}-edit-${e.id}`}>메모 고치기</label>
+                    <input className="krds-input small" id={`${uid}-edit-${e.id}`} value={editing.text} autoFocus
+                      onChange={(ev) => { const text = ev.target.value; setEditing((cur) => cur && { ...cur, text }); }}
+                      onKeyDown={(ev) => { if (ev.key === 'Enter') saveEdit(); if (ev.key === 'Escape') { ev.stopPropagation(); setEditing(null); } }} />
+                    <button type="button" className="krds-btn xsmall primary" onClick={saveEdit} disabled={!editing.text.trim()}>저장</button>
+                    <button type="button" className="krds-btn xsmall text" onClick={() => setEditing(null)}>취소</button>
+                  </span>
+                )}
               </li>
             ))}
           </ol>

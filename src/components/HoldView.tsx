@@ -133,6 +133,8 @@ export function HoldView({ obs, filters: f, setFilters, onUpdate, toast }: Props
       </div>
       {view !== 'done' && <>
         <SectionTitle title={view === 're' ? '재분석 요청' : '검수 대기'} sub={`${open.length}건`} />
+        {/* 카드를 누르면 상세가 열린다는 걸 처음 보는 사람도 알게 */}
+        {open.length > 0 && <p className="sec-hint">카드를 누르면 판단 유보 사유, 큰 사진, 위치 정보를 자세히 볼 수 있습니다.</p>}
         <div className="holdgrid">{open.length ? open.slice(0, openN).map(card) : f.q.trim() ? (
           <EmptyState kind="search" title={`'${f.q.trim()}'에 맞는 판단 유보 건이 없습니다`} desc="위치·행정구역·장비 이름이나 관측 ID로 찾아보세요."
             action={{ label: '검색어 지우기', onClick: () => setFilters({ ...f, q: '' }) }} />

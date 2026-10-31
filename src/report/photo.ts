@@ -36,10 +36,11 @@ export function loadImage(url: string): Promise<HTMLImageElement> {
 }
 
 /**
- * 보내기 전에 긴 변 2048px JPEG로 줄인다 (분석에는 충분하고, 수 MB 사진이 수백 KB가 된다).
+ * 보내기 전에 긴 변 1600px JPEG로 줄인다. AI는 640px(장애물)·짧은 변 480px(보도 영역)로 줄여 보므로 충분하고,
+ * 공유 서버로 올리는 속도가 초당 수백 KB라 크기가 곧 기다리는 시간이다 (수 MB 사진이 200~300KB가 된다).
  * 회전 정보는 브라우저가 반영해 그리므로 줄인 사진도 똑바로 선다. 줄여도 작아지지 않으면 원본 그대로
  */
-export async function shrinkPhoto(file: File, url: string, max = 2048, quality = 0.85): Promise<File> {
+export async function shrinkPhoto(file: File, url: string, max = 1600, quality = 0.82): Promise<File> {
   const img = await loadImage(url);
   const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
   const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
