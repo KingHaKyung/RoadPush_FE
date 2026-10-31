@@ -67,6 +67,12 @@ export interface HistoryEntry {
   txt: string;
   ai?: boolean;
   by?: string;
+  /** 고칠 수 있는 기록의 번호 (지금은 예시 데이터에서만. 백엔드 이력에는 아직 번호가 없다) */
+  id?: string;
+  /** 사람이 남긴 메모. 처리 기록 가운데 이것만 고칠 수 있다 (지우기는 없다) */
+  memo?: string;
+  /** 메모를 고친 적이 있으면 마지막으로 고친 시각 ('(수정됨)' 표시) */
+  editedAt?: string;
 }
 
 /** 수집·분석된 관측 (원본 AI 결과) */
@@ -131,7 +137,10 @@ export interface Pin {
 }
 
 /** 사람이 바꾼 값 (AI 결과와 따로 저장) */
-export type ObservationPatch = Partial<Pick<Observation, 'action' | 'dept' | 'human' | 'review' | 'reanalyze'>>;
+export type ObservationPatch = Partial<Pick<Observation, 'action' | 'dept' | 'human' | 'review' | 'reanalyze'>> & {
+  /** 이력의 메모 고치기 (id: HistoryEntry.id) */
+  memoEdit?: { id: string; text: string };
+};
 
 export interface Filters {
   period: Period;

@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { API_BASE } from '../api/client';
 import { devFlag } from '../lib/dev';
-import { addReportNote, dongName, siteCandidates, submitReport, type SiteCandidates, type Source } from './api';
+import { addReportNote, dongName, siteCandidates, submitReport, warmUp, type SiteCandidates, type Source } from './api';
 import { inKorea, loadImage, readPhotoMeta, shrinkPhoto } from './photo';
 import { LocationMap } from './LocationMap';
 import '../styles/report.css';
@@ -35,6 +35,9 @@ const TIME_TEXT: Record<Source, string> = { exif: '사진에 담긴 시각', dev
  * 도보 통행 단절 제보 (시민용 웹앱). 한 화면에서 사진과 위치를 받아 바로 보낸다.
  * 촬영 시각은 묻지 않는다: 사진 메타데이터(EXIF) 시각, 없으면 사진 파일 시각
  */
+/** 이보다 최근에 찍은 사진은 '방금 찍은 사진'으로 보고 현재 위치를 쓴다 */
+const JUST_TAKEN_MS = 10 * 60 * 1000;
+
 export function ReportApp() {
   if (devFlag('crash')) throw new Error('개발용 화면 오류 (?crash=1)');
   const uid = useId();
@@ -45,11 +48,16 @@ export function ReportApp() {
   const [reading, setReading] = useState(false);
   const [taken, setTaken] = useState<{ at: string; source: Source } | null>(null);
   const [loc, setLoc] = useState<Loc | null>(null);
+  const autoLoc = useRef(false);
+  /** 지금 위치가 사진 때문에 정해진 것인지 (사진 위치, 또는 방금 찍은 사진이라 저절로 찾은 현재 위치). 사진을 바꾸거나 지우면 같이 비운다 */
+  const fromPhoto = loc?.source === 'exif' || autoLoc.current;
   const [cands, setCands] = useState<SiteCandidates | null>(null);
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState('');
   /** 보내는 단계: 사진 줄이기 → 보내기 (버튼 글자로 알린다) */
   const [sending, setSending] = useState<'' | 'shrink' | 'send'>('');
+  /** 사진을 올린 비율 (0~100). 다 올리고 서버 답을 기다리는 동안은 100 */
+  const [sentPct, setSentPct] = useState(0);
   /** 사진에서 위치를 못 얻었을 때 할 일 (사진 칸 아래) */
   const [photoNote, setPhotoNote] = useState('');
   const [note, setNote] = useState('');
@@ -67,7 +75,7 @@ export function ReportApp() {
   }, []);
   const [done, setDone] = useState<{ id: string; at: string; noteLost?: boolean } | null>(null);
 
-  useEffect(() => { document.title = '보행 통로 제보 · RoadPush'; }, []);
+  useEffect(() => { document.title = '보행 통로 제보 · RoadPush'; warmUp(); }, []);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
   // 접수되면 화면 맨 위 제목으로 (화면 낭독기도 결과부터 읽게)
   useEffect(() => { window.scrollTo(0, 0); headRef.current?.focus(); }, [done]);
@@ -109,8 +117,10 @@ export function ReportApp() {
       return;
     }
     setError(''); setFile(f); setPreview(url); setPhotoNote('');
+    // 화면을 연 지 오래됐으면 연결이 닫혔을 수 있어 사진을 고를 때 한 번 더 열어 둔다
+    warmUp();
     // 사진 위치로 정한 곳은 새 사진에 맞춰 다시 정한다. 사용자가 고른 위치는 그대로 둔다
-    if (loc?.source === 'exif') { setLoc(null); setCands(null); }
+    if (fromPhoto) { setLoc(null); setCands(null); autoLoc.current = false; }
     setTaken({ at: kstIso(new Date(f.lastModified || Date.now())), source: 'device' });
     // 촬영 시각·위치는 브라우저에서 바로 읽는다 (서버에 원본을 따로 올리지 않는다)
     setReading(true);
@@ -118,9 +128,14 @@ export function ReportApp() {
     setReading(false);
     if (meta.at) setTaken({ at: kstIso(meta.at), source: 'exif' });
     // 사용자가 이미 지도나 현재 위치로 고른 곳이 있으면 덮지 않는다
-    const userPicked = loc && loc.source !== 'exif';
+    const userPicked = loc && !fromPhoto;
     if (meta.gps && inKorea(meta.gps.lat, meta.gps.lng)) {
       if (!userPicked) setLoc({ lat: meta.gps.lat, lng: meta.gps.lng, source: 'exif' });
+    } else if (!userPicked && !meta.gps && Date.now() - (meta.at ?? new Date(f.lastModified || 0)).getTime() < JUST_TAKEN_MS) {
+      // 휴대폰 브라우저(아이폰 Safari·안드로이드 Chrome)는 카메라로 찍어 넘긴 사진에서 위치 정보를 지운다.
+      // 방금 찍은 사진이면 지금 서 있는 곳이 찍은 곳이므로 현재 위치를 바로 찾는다 (앨범의 지난 사진은 하지 않는다)
+      setPhotoNote('');
+      useMyLocation(true);
     } else if (!userPicked) {
       setPhotoNote(meta.gps
         ? "사진에 담긴 위치가 국내가 아니에요. 아래 지도에서 막힌 곳을 고르거나 '현재 위치 사용'을 눌러 주세요."
@@ -129,18 +144,27 @@ export function ReportApp() {
   };
   const removePhoto = () => {
     setFile(null); setPreview(''); setTaken(null); setPhotoNote('');
-    if (loc?.source === 'exif') { setLoc(null); setCands(null); }
+    if (fromPhoto) { setLoc(null); setCands(null); autoLoc.current = false; }
     // 같은 사진을 다시 골라도 change가 일어나게 비운다
     if (fileRef.current) fileRef.current.value = '';
   };
 
-  const useMyLocation = () => {
+  /** auto: 방금 찍은 사진이라 저절로 찾는 경우. 그사이 사용자가 지도에서 고른 곳은 덮지 않는다 */
+  const useMyLocation = (auto = false) => {
     // 브라우저는 https 주소(또는 localhost)에서만 위치를 내준다
     if (!window.isSecureContext) { setError('현재 위치는 https 주소에서만 쓸 수 있습니다. 지도를 눌러 위치를 골라 주세요.'); return; }
     if (!navigator.geolocation) { setError('이 브라우저는 현재 위치를 지원하지 않습니다. 지도를 눌러 위치를 골라 주세요.'); return; }
     setLocating(true); setError('');
     navigator.geolocation.getCurrentPosition(
-      (p) => { setLoc({ lat: p.coords.latitude, lng: p.coords.longitude, source: 'device' }); setLocating(false); },
+      (p) => {
+        const next: Loc = { lat: p.coords.latitude, lng: p.coords.longitude, source: 'device' };
+        setLoc((cur) => {
+          if (auto && cur?.source === 'manual') return cur;
+          autoLoc.current = auto;
+          return next;
+        });
+        setLocating(false);
+      },
       (e) => {
         setError(e.code === e.PERMISSION_DENIED
           ? '위치 권한이 꺼져 있습니다. 브라우저 설정에서 이 사이트의 위치 권한을 허용하거나 지도를 눌러 골라 주세요.'
@@ -156,7 +180,7 @@ export function ReportApp() {
 
   const send = async () => {
     if (!file || !loc) return;
-    setSending('shrink'); setError('');
+    setSending('shrink'); setError(''); setSentPct(0);
     try {
       // 보내기 전에 줄인다 (원본이 수 MB여도 수백 KB로). 줄이지 못하면 원본 그대로
       const small = await shrinkPhoto(file, preview).catch(() => file);
@@ -165,7 +189,7 @@ export function ReportApp() {
         file: small, capturedAt: taken?.at ?? kstIso(new Date()), capturedAtSource: taken?.source ?? 'device',
         lat: loc.lat, lng: loc.lng, locationSource: loc.source,
         ...(near ? { siteId: near.site.id } : { newSiteName: road ? `${road} 시민 제보` : '시민 제보 지점' }),
-      });
+      }, (r) => setSentPct(Math.round(r * 100)));
       // 설명은 관측 메모로 따로 붙인다. 실패해도 제보 자체는 접수된 상태라 완료 화면에서 알린다
       const text = note.trim();
       const noteLost = text ? await addReportNote(r.observation_id, text).then(() => false, () => true) : false;
@@ -262,8 +286,8 @@ export function ReportApp() {
         <div className="form-group">
           <div className="form-tit"><h2 className="rp-h2">막힌 곳 위치</h2></div>
           <div className="form-conts">
-            <LocationMap loc={loc} onPick={(lat, lng) => { setLoc({ lat, lng, source: 'manual' }); setError(''); }} onFail={setMapFailed} />
-            <button type="button" className="krds-btn medium secondary rp-locbtn" onClick={useMyLocation} disabled={locating}>
+            <LocationMap loc={loc} onPick={(lat, lng) => { autoLoc.current = false; setLoc({ lat, lng, source: 'manual' }); setError(''); }} onFail={setMapFailed} />
+            <button type="button" className="krds-btn medium secondary rp-locbtn" onClick={() => useMyLocation()} disabled={locating}>
               {locating ? '현재 위치를 찾는 중' : loc?.source === 'device' ? '현재 위치 수정' : '현재 위치 사용'}
             </button>
           </div>
@@ -298,7 +322,7 @@ export function ReportApp() {
       <div className="btn-wrap rp-actions">
         {/* 빠진 것은 미리 띄우지 않고, 눌렀을 때 알린다 */}
         <button type="button" className="krds-btn large primary" disabled={reading || !!sending || !API_BASE || !online} onClick={() => (missing ? setError(missing) : send())}>
-          {sending === 'shrink' ? '사진 준비 중' : sending ? '보내는 중' : '제보하기'}
+          {sending === 'shrink' ? '사진 준비 중' : sending ? (sentPct >= 100 ? '접수 확인 중' : `보내는 중 ${sentPct}%`) : '제보하기'}
         </button>
       </div>
       {!API_BASE ? <p className="form-hint rp-missing">제보 서버에 연결되지 않아 지금은 접수할 수 없습니다.</p>

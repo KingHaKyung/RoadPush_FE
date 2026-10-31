@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ACTIONS, DEMO_NOW, DEPTS, OPEN_ACTIONS, CL_KIND, CL_PAVE, PASS, PASS_KEYS, PIN_COLOR, RANK, SORT_LABEL, SRC_LABEL } from '../lib/constants';
 import { fmtTime } from '../lib/format';
 import { dayDelta, kpiPred, siteCounts, trend as trendOf, type KpiKey } from '../lib/stats';
-import { addDays, compareObs, effPass, inPeriod, nodeName, pinKey, pinsOf, RANGE_MAX_DAYS, segById, ymd } from '../lib/segments';
+import { addDays, compareObs, effPass, nodeName, pinKey, pinsOf, RANGE_MAX_DAYS, segById, ymd } from '../lib/segments';
 import type { Action, Filters, Observation, ObservationPatch, Pass, Pin, SortKey, Source } from '../types';
 import { AreaBars, KpiCard, SectionTitle } from './Dashboard';
 import { EmptyState } from './EmptyState';
@@ -153,6 +153,8 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
   const sites = useMemo(() => pinsOf(obs, { ...f, pass: new Set(PASS_KEYS), act: new Set(ACTIONS) }), [obs, f]);
   const pins = useMemo(() => pinsOf(obs, f), [obs, f]);
   const cnt = (p: Pass) => sites.filter((s) => s.pass === p).length;
+  // 수집 경로도 판정·처리 상태와 같은 '지점' 단위로 센다 (전에는 사진 장수라 숫자가 맞지 않았다). 지점의 최근 관측이 들어온 경로
+  const allSrc = useMemo(() => pinsOf(obs, { ...f, pass: new Set(PASS_KEYS), act: new Set(ACTIONS), src: new Set<Source>(['cctv', 'car', 'upload']) }), [obs, f]);
   /** 지도에 찍을 지점이 없을 때: 기간 안에 관측은 있는데 조건에 걸렸는지, 기간 안에 아예 없는지 */
   const periodHasSites = useMemo(() => !pins.length && pinsOf(obs, { ...f, q: '', dept: '', pass: new Set(PASS_KEYS), act: new Set(ACTIONS), src: new Set<Source>(['cctv', 'car', 'upload']) }).length > 0, [obs, f, pins.length]);
   const resetConds = () => setFilters({ ...f, q: '', dept: '', pass: new Set(PASS_KEYS), act: new Set(ACTIONS), src: new Set<Source>(['cctv', 'car', 'upload']) });
@@ -275,7 +277,7 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
             <option value="">전체 부서</option>{DEPTS.filter((d) => d !== '미배정').map((d) => <option key={d}>{d}</option>)}
           </select>
         </div>
-        <div className="fgroup"><h2>수집 경로</h2>{(['cctv', 'car', 'upload'] as Source[]).map((s) => chk('src', s, s === 'car' ? '불법주정차 단속차량' : SRC_LABEL[s], obs.filter((o) => o.src === s && inPeriod(o, f)).length))}</div>
+        <div className="fgroup"><h2>수집 경로</h2>{(['cctv', 'car', 'upload'] as Source[]).map((s) => chk('src', s, s === 'car' ? '불법주정차 단속차량' : SRC_LABEL[s], allSrc.filter((p) => p.obs.src === s).length))}</div>
         {sites.length > 0 && (
           <div className="fgroup">
             <h2>행정구역</h2>

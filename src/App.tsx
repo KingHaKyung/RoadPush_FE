@@ -52,7 +52,10 @@ export default function App() {
   const onUpdate = useCallback((ids: string | string[], patch: Parameters<typeof update>[1], log?: string) => {
     // 백엔드가 '지금은 할 수 없음'(409)으로 답하면 먼저 띄운 안내를 그 내용으로 바꾼다 (예시 데이터 모드는 안내 없음)
     Promise.resolve(update(ids, patch, log)).then((notice) => notice && toast(notice));
-    if (log?.startsWith('요청 양식 복사')) toast('요청 양식을 복사했습니다. 업무 메신저나 신고 창에 붙여 넣으세요');
+    // 보낼 글 복사는 상세 화면 안에서 복사 결과와 글을 보여 주므로 따로 알리지 않는다
+    if (log?.endsWith('에 현장점검 요청')) return;
+    if (patch.memoEdit) { toast('메모를 고쳤습니다'); return; }
+    if (!Array.isArray(ids) && patch.dept && patch.action) toast('담당 부서와 처리 상태를 저장했습니다');
     else if (!Array.isArray(ids) && patch.dept) toast('담당 부서를 바꿨습니다');
     else if (!Array.isArray(ids) && patch.action) toast('처리 상태를 바꿨습니다');
     else if (!Array.isArray(ids) && log?.startsWith('메모')) toast('메모를 기록했습니다');

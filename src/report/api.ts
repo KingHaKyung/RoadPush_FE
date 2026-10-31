@@ -47,7 +47,16 @@ export interface ReportIn {
   siteId?: string; newSiteName?: string;
 }
 
-export function submitReport(r: ReportIn) {
+/**
+ * 서버 연결을 미리 열어 둔다. 공유 서버(Tailscale Funnel)는 새 연결마다 보안 연결(TLS)에 3초 넘게 걸려서,
+ * 화면을 열 때·사진을 고를 때 미리 맺어 두면 '제보하기'를 눌렀을 때 그만큼 빨리 올라간다. 실패해도 상관없다
+ */
+export function warmUp() {
+  fetch(`${API_BASE}/health`, { cache: 'no-store' }).catch(() => {});
+}
+
+/** onProgress: 올린 비율(0~1). fetch는 올리는 진행률을 알려 주지 않아 XMLHttpRequest로 보낸다 */
+export function submitReport(r: ReportIn, onProgress?: (ratio: number) => void) {
   const fd = new FormData();
   fd.append('file', r.file);
   fd.append('captured_at', r.capturedAt);
@@ -59,7 +68,20 @@ export function submitReport(r: ReportIn) {
   else fd.append('new_site_name', r.newSiteName ?? '시민 제보 지점');
   fd.append('source', 'upload');
   fd.append('device', '시민 제보');
-  return send<{ observation_id: string }>('/observations', { method: 'POST', body: fd });
+  return new Promise<{ observation_id: string }>((ok, fail) => {
+    const x = new XMLHttpRequest();
+    x.open('POST', `${API_BASE}/observations`);
+    x.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total);
+    x.onload = () => {
+      let body: { observation_id?: string; detail?: unknown } | null = null;
+      try { body = JSON.parse(x.responseText); } catch { /* 본문 없음 */ }
+      if (x.status >= 200 && x.status < 300 && body?.observation_id) ok({ observation_id: body.observation_id });
+      else fail(new Error(typeof body?.detail === 'string' ? body.detail : `제보 서버 오류 (${x.status})`));
+    };
+    // 응답 없이 끊기면 fetch처럼 TypeError로 (화면에서 연결 문제 안내를 띄운다)
+    x.onerror = () => fail(new TypeError('network'));
+    x.send(fd);
+  });
 }
 
 /** 제보자가 남긴 설명: 관측 메모로 붙인다 (관제 화면 처리 이력에 보인다) */
