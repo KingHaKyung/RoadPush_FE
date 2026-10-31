@@ -9,7 +9,7 @@ import { ROAD_CLICK, SHOW_LANDMARKS } from '../../lib/features';
 import { loadIndex, loadTilesIn } from '../../lib/nodelinkTiles';
 import { PASS, PIN_COLOR } from '../../lib/constants';
 import { midOf, segById } from '../../lib/segments';
-import { tileUrl } from '../../lib/tiles';
+import { KOREA_BOUNDS, MAP_ZOOM, tileUrl } from '../../lib/tiles';
 import type { Pass, Segment } from '../../types';
 import type { Pin, RiskMapProps } from './types';
 
@@ -80,7 +80,8 @@ export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin
   useEffect(() => {
     const m = L.map(el.current!, {
       center: [(MAP_BOUNDS.south + MAP_BOUNDS.north) / 2, (MAP_BOUNDS.west + MAP_BOUNDS.east) / 2],
-      zoom: ALL_ZOOM, minZoom: 7, maxZoom: 19, zoomControl: false, preferCanvas: true,
+      zoom: ALL_ZOOM, minZoom: MAP_ZOOM.min, maxZoom: MAP_ZOOM.max, zoomControl: false, preferCanvas: true,
+      maxBounds: KOREA_BOUNDS, maxBoundsViscosity: 1,
     });
     L.control.zoom({ position: 'topright' }).addTo(m);
     // 지도 위 출처는 배경지도(브이월드)만. 도로·도로폭 자료 출처는 화면 아래 푸터에 둔다
@@ -88,7 +89,7 @@ export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin
     let failed = 0, loaded = 0;
     // 키는 개발 서버(프록시)가 붙인다. 브라우저에는 키가 없다
     tilesRef.current = L.tileLayer(tileUrl(tileBase, 'white/{z}/{y}/{x}.png'), {
-      minZoom: 7, maxZoom: 19, attribution: '배경지도 © 브이월드(국토교통부)',
+      minZoom: MAP_ZOOM.min, maxZoom: MAP_ZOOM.max, attribution: '배경지도 © 브이월드(국토교통부)',
     })
       .on('tileload', () => { loaded++; })
       .on('tileerror', () => { if (++failed >= 6 && !loaded) onError('브이월드 배경지도를 불러오지 못했습니다'); })
@@ -221,7 +222,9 @@ export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin
   useEffect(() => {
     const m = map.current; if (!ready || !m) return;
     const cluster = L.markerClusterGroup({
-      maxClusterRadius: 56, showCoverageOnHover: false, spiderfyOnMaxZoom: true, disableClusteringAtZoom: 18,
+      // 끝(19)까지 묶되 확대할수록 묶는 거리를 줄인다 (전에는 18부터 묶지 않아 5~15m 떨어진 핀이 겹쳐 뒤 핀을 누르기 어려웠다).
+      // 19에서도 묶여 있으면 누를 때 부채꼴로 펼친다 (spiderfy)
+      maxClusterRadius: (z) => (z >= 17 ? 24 : 56), showCoverageOnHover: false, spiderfyOnMaxZoom: true,
       // 묶음 색은 그 안에서 가장 위험한 판정
       iconCreateFunction: (c) => {
         const passes = c.getAllChildMarkers().map((mk) => (mk.options as PinOptions).pass);

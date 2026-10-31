@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ACTOR, addNote, ApiError, cancelReanalyze, cancelReview, fetchObservations, reanalyze, review, setActions, toObservation, USE_API, type AnalysisResponse } from '../api/client';
+import { ACTOR, addNote, ApiError, editNote, cancelReanalyze, cancelReview, fetchObservations, reanalyze, review, setActions, toObservation, USE_API, type AnalysisResponse } from '../api/client';
 import { SEG_OF } from '../data/nodelink';
 import { SAMPLE_OBSERVATIONS } from '../data/observations';
 import type { HistoryEntry, Observation, ObservationPatch, Persistence, SiteCheck } from '../types';
@@ -197,6 +197,9 @@ function useApiObservations() {
       }
       if (patch.reanalyze === false) {
         for (const id of list) await cancelReanalyze(id);
+      }
+      if (patch.memoEdit) {
+        for (const id of list) await editNote(id, patch.memoEdit.id, patch.memoEdit.text);
       }
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {

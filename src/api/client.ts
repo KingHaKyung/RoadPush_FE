@@ -41,7 +41,8 @@ export interface AnalysisResponse {
   /** initial: 첫 분석 · reanalysis: 재분석 요청 */
   analysis_trigger?: string | null;
   action: { action_id: string | null; state: string; label: string; dept: string | null };
-  history: { t: string; txt: string; ai: boolean; by: string | null }[];
+  /** id·edited_at은 메모 수정 API가 생기면 백엔드가 내려준다 (그 전에는 없음) */
+  history: { t: string; txt: string; ai: boolean; by: string | null; id?: string | null; edited_at?: string | null }[];
 }
 
 // 끝에 '/'를 붙여 적어도 '/api/v1//observations'가 되지 않게 뗀다
@@ -104,6 +105,10 @@ export const cancelReanalyze = (id: string) =>
 export const addNote = (id: string, content: string) =>
   call<unknown>(`/observations/${id}/notes`, { method: 'POST', body: JSON.stringify({ content, author: ACTOR }) });
 
+/** 메모 고치기 (지우기는 없다). 백엔드 메모 수정 API가 생기면 동작한다 */
+export const editNote = (id: string, noteId: string, content: string) =>
+  call<unknown>(`/observations/${id}/notes/${noteId}`, { method: 'PATCH', body: JSON.stringify({ content }) });
+
 const toPass = (p: ApiPass | null): Pass => (p === null || p === 'undetermined' ? 'hold' : p);
 const COND: Condition[] = ['night', 'rain', 'occluded', 'mixed', 'boundary_review', 'boundary_failed', 'surface_uncertain', 'occupancy_unverified', 'low_coverage'];
 const REVIEW: Record<AnalysisResponse['review_status'], Review> = { pending: '미검수', confirmed: '확인', corrected: '수정' };
@@ -141,6 +146,13 @@ export function toObservation(a: AnalysisResponse) {
     human: a.human_passability ? toPass(a.human_passability) : null,
     review: REVIEW[a.review_status],
     reanalyze: waiting,
-    hist: a.history.map((h): HistoryEntry => ({ t: h.t, txt: h.txt, ai: h.ai || undefined, by: h.by ?? undefined })),
+    // 메모는 memo로 따로 (화면에서 같은 때 남긴 처리 상태와 한 항목으로 묶고, 메모만 고칠 수 있게)
+    hist: a.history.map((h): HistoryEntry => {
+      const memo = h.txt.startsWith('메모: ') ? h.txt.slice('메모: '.length) : undefined;
+      return {
+        t: h.t, txt: memo != null ? '' : h.txt, ai: h.ai || undefined, by: h.by ?? undefined,
+        ...(memo != null ? { memo } : {}), ...(h.id ? { id: h.id } : {}), ...(h.edited_at ? { editedAt: h.edited_at } : {}),
+      };
+    }),
   };
 }

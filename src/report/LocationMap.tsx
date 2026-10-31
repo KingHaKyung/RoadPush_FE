@@ -2,7 +2,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef, useState } from 'react';
 import { EmptyState } from '../components/EmptyState';
-import { tileUrl } from '../lib/tiles';
+import { KOREA_BOUNDS, MAP_ZOOM, tileUrl } from '../lib/tiles';
 
 const TILES = (import.meta.env.VITE_VWORLD_PROXY as string | undefined)?.trim();
 /** 위치를 아직 모를 때 보여 줄 곳 (분당구 서현역 부근) */
@@ -28,11 +28,14 @@ export function LocationMap({ loc, onPick, onFail }: { loc: { lat: number; lng: 
   useEffect(() => { fail.current?.(failed); }, [failed]);
 
   useEffect(() => {
-    const m = L.map(el.current!, { center: FALLBACK, zoom: 16, zoomControl: false, attributionControl: !!TILES });
+    const m = L.map(el.current!, {
+      center: FALLBACK, zoom: 16, minZoom: MAP_ZOOM.min, maxZoom: MAP_ZOOM.max, zoomControl: false, attributionControl: !!TILES,
+      maxBounds: KOREA_BOUNDS, maxBoundsViscosity: 1,
+    });
     // 지도 위 출처는 배경지도(브이월드)만 (Leaflet 링크는 뺀다)
     m.attributionControl?.setPrefix(false);
     if (TILES) {
-      tiles.current = L.tileLayer(tileUrl(TILES, 'Base/{z}/{y}/{x}.png'), { maxZoom: 19, attribution: '배경지도 © 브이월드(국토교통부)' })
+      tiles.current = L.tileLayer(tileUrl(TILES, 'Base/{z}/{y}/{x}.png'), { minZoom: MAP_ZOOM.min, maxZoom: MAP_ZOOM.max, attribution: '배경지도 © 브이월드(국토교통부)' })
         .on('tileload', () => { count.current.ok++; setFailed(false); })
         // 한 장도 못 받은 채 여러 장 실패하면 연결 문제로 본다
         .on('tileerror', () => { if (++count.current.bad >= 4 && !count.current.ok) setFailed(true); })
