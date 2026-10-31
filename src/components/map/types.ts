@@ -15,4 +15,6 @@ export interface RiskMapProps {
   onSelect: (segId: string) => void;
   /** 값이 바뀌면 선택한 핀(없으면 링크)으로 이동 */
   focusKey: number;
+  /** 값이 바뀌면(필터를 바꾸면) 남은 핀이 모두 보이게 지도를 옮긴다 */
+  fitKey?: string;
 }

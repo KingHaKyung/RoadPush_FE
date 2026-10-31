@@ -59,7 +59,7 @@ const tipText = (p: Pin) => `${p.obs.place} · ${PASS[p.pass].label}${p.obs.risk
 const tipHtml = (p: Pin) => `<b>${esc(p.obs.place)}</b><span>${PASS[p.pass].label}${p.obs.risk == null ? '' : ` · 위험도 ${p.obs.risk}점`}${p.n > 1 ? ` · 관측 ${p.n}건` : ''}</span>`;
 
 /** 브이월드 프록시가 있으면 쓰는 지도: 표준노드링크 도로를 직접 그리고 브이월드는 옅은 배경으로 */
-export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin, selected, onSelect, focusKey, onError }: RiskMapProps & { tileBase: string; onError: (msg: string) => void }) {
+export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin, selected, onSelect, focusKey, fitKey, onError }: RiskMapProps & { tileBase: string; onError: (msg: string) => void }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const tilesRef = useRef<L.TileLayer | null>(null);
@@ -339,6 +339,22 @@ export function VWorldRiskMap({ tileBase, pins, selectedPin, onPickPin, hoverPin
     clusterRef.current?.zoomToShowLayer(mk, () => { center(); centerTimer.current = window.setTimeout(center, 300); });
   };
   useEffect(() => () => clearTimeout(centerTimer.current), []);
+  // 필터를 바꾸면(fitKey) 남은 핀이 모두 보이게 옮긴다. 처음 핀이 들어왔을 때도 한 번 (데이터가 있는 곳에서 시작).
+  // 검색어를 칠 때마다 움직이지 않게 잠깐 멈춘 뒤에 옮긴다. 핀이 하나면 그 주변이 보이게 17단계까지만
+  const fitted = useRef(false);
+  const pinsRef = useRef(pins);
+  pinsRef.current = pins;
+  const hasPins = pins.length > 0;
+  useEffect(() => {
+    const m = map.current; if (!ready || !m || !hasPins) return;
+    const t = window.setTimeout(() => {
+      const ps = pinsRef.current; if (!ps.length) return;
+      m.invalidateSize({ pan: false });
+      m.fitBounds(L.latLngBounds(ps.map((p) => [p.lat, p.lng] as [number, number])), { padding: [56, 56], maxZoom: 17 });
+      fitted.current = true;
+    }, fitted.current ? 450 : 0);
+    return () => clearTimeout(t);
+  }, [ready, fitKey, hasPins]);
   // 핀을 고르면(지도·목록 어디서든) 그 핀을 지도 가운데로
   useEffect(() => {
     if (!ready || !selectedPin) return;

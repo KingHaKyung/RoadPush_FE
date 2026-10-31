@@ -289,7 +289,8 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
       </div>}
 
       <div className="mapwrap">
-        <RiskMap pins={pins} selectedPin={site} hoverPin={hoverPin} onPickPin={(p) => { setHoverPin(null); pickPin(p); }} selected={selSeg} onSelect={(id) => selectSeg(id)} focusKey={focusKey} />
+        <RiskMap pins={pins} selectedPin={site} hoverPin={hoverPin} onPickPin={(p) => { setHoverPin(null); pickPin(p); }} selected={selSeg} onSelect={(id) => selectSeg(id)} focusKey={focusKey}
+          fitKey={`${f.period}|${f.range.from}|${f.range.to}|${[...f.pass].join()}|${[...f.act].join()}|${[...f.src].join()}|${f.dept}|${f.q.trim()}`} />
         {!pins.length && (
           <div className="map-empty">
             {periodHasSites ? (
