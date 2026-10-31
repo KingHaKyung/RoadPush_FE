@@ -34,7 +34,9 @@ const sameCause = (a: Raw, b: Raw) => a.causes.some((c) => b.causes.includes(c))
  * - 현장 확인: 처리를 넘긴 뒤 다음 관측에서 원인이 사라졌으면 '해소 확인', 다음 관측이 아직 없으면 '새 관측 대기',
  *   사라졌다가 다시 나타났으면 '재발'. 처리 상태(업무 종결)와 따로 본다
  */
-function derive(list: Raw[]): Observation[] {
+function derive(input: Raw[]): Observation[] {
+  // 사람이 고친 원인이 있으면 그걸 원인으로 (AI 원인은 aiCauses에 남겨 AI 결과와 비교할 수 있게)
+  const list = input.map((o) => (o.humanCauses ? { ...o, aiCauses: o.causes, causes: o.humanCauses } : o));
   const bySite = new Map<string, Raw[]>();
   for (const o of list) {
     const k = pinKey(o);
@@ -43,7 +45,9 @@ function derive(list: Raw[]): Observation[] {
   for (const os of bySite.values()) os.sort((a, b) => a.t.localeCompare(b.t));
 
   return list.map((o) => {
-    const routes = o.pass === 'passable' || o.pass === 'hold' ? [] : routesOf(o.causes);
+    // 처리 경로는 사람 판정이 있으면 그 판정으로 (판단 유보를 사람이 단절로 고치면 처리 대상이 된다)
+    const ep = o.human ?? o.pass;
+    const routes = ep === 'passable' || ep === 'hold' ? [] : routesOf(o.causes);
     if (!isDetection(o)) return { ...o, routes, persist: null, site: null };
     const os = bySite.get(pinKey(o))!;
     const i = os.indexOf(o);
@@ -130,12 +134,21 @@ function addrPlace(area?: string, addr?: string): string | undefined {
   return `${(from >= 0 ? addr.slice(from) : addr).replace(/\s*\(.*\)\s*$/, '')} 부근`;
 }
 
+/**
+ * 사람이 고친 원인 (공유 서버 모드). 백엔드가 원인 수정(human_causes)을 받기 전까지 이 브라우저에만 저장한다.
+ * 백엔드가 값을 주기 시작하면 백엔드 값을 먼저 쓴다
+ */
+const CAUSE_KEY = 'roadpush-human-causes';
+const readCauses = (): Record<string, string[]> => { try { return JSON.parse(localStorage.getItem(CAUSE_KEY) ?? '{}') ?? {}; } catch { return {}; } };
+const writeCauses = (m: Record<string, string[]>) => { try { localStorage.setItem(CAUSE_KEY, JSON.stringify(m)); } catch { /* 저장 불가 환경 */ } };
+
 /** 백엔드 연결: 관측을 API로 읽고, 처리 상태·사람 판정·재분석을 API로 보낸다 */
 function useApiObservations() {
   const [rows, setRows] = useState<AnalysisResponse[]>([]);
   const [error, setError] = useState<string | null>(null);
   /** 한 번이라도 받았는지 (받기 전에는 '불러오는 중' 또는 '연결 실패' 화면) */
   const [loaded, setLoaded] = useState(false);
+  const [localCauses, setLocalCauses] = useState(readCauses);
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
   /** 저장 중인 메모 고치기 (메모 번호 → 고친 글·시각). 그사이 주기적으로 다시 받아도 옛 메모로 돌아가지 않게 덧씌운다 */
@@ -166,8 +179,9 @@ function useApiObservations() {
         const known = !!linkId && segById.has(linkId);
         const seg = known ? linkId : nearestSeg(base.lat, base.lng);
         // 아는 링크면 도로 이름, 아니면(예시 지역 밖) 가장 가까운 예시 도로 이름이 엉뚱하게 붙지 않게 주소로
-        return { ...base, ...rest, seg, place: known ? segPlace(seg) : addrPlace(base.area, base.addr) ?? a.site_name } as Raw;
-      })), [rows]);
+        const humanCauses = rest.humanCauses ?? localCauses[base.id] ?? null;
+        return { ...base, ...rest, humanCauses, seg, place: known ? segPlace(seg) : addrPlace(base.area, base.addr) ?? a.site_name } as Raw;
+      })), [rows, localCauses]);
 
   /** 백엔드에 반영한다. 지금은 할 수 없는 요청(409)이면 화면에 띄울 안내를 돌려준다 */
   const update = useCallback(async (ids: string | string[], patch: ObservationPatch, logTxt?: string): Promise<string | null> => {
@@ -202,6 +216,12 @@ function useApiObservations() {
       }
       if (patch.reanalyze === false) {
         for (const id of list) await cancelReanalyze(id);
+      }
+      if (patch.humanCauses !== undefined) {
+        const next = { ...readCauses() };
+        for (const id of list) { if (patch.humanCauses?.length) next[id] = patch.humanCauses; else delete next[id]; }
+        writeCauses(next);
+        setLocalCauses(next);
       }
       if (patch.memoEdit) {
         // 공유 서버가 느려(고치기 + 목록 다시 받기 10초 안팎) 그동안 옛 메모가 보였다. 화면에는 바로 반영하고,

@@ -27,6 +27,8 @@ export interface AnalysisResponse {
   images: { original: string; thumbnail?: string | null; surface_overlay?: string | null; obstacle_overlay?: string | null };
   review_status: 'pending' | 'confirmed' | 'corrected';
   human_passability: ApiPass | null;
+  /** 사람이 고친 원인 (백엔드 추가 예정. 그 전에는 없음) */
+  human_causes?: string[] | null;
   // 화면용 추가 필드
   site_name: string;
   link_id: string | null;
@@ -144,6 +146,7 @@ export function toObservation(a: AnalysisResponse) {
     base,
     linkId: a.link_id,
     human: a.human_passability ? toPass(a.human_passability) : null,
+    humanCauses: a.human_causes ?? null,
     review: REVIEW[a.review_status],
     reanalyze: waiting,
     // 메모는 memo로 따로 (화면에서 같은 때 남긴 처리 상태와 한 항목으로 묶고, 메모만 고칠 수 있게)

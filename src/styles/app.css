@@ -485,6 +485,17 @@ svg.map .svg-pin:focus-visible path{stroke:var(--accent)}
 .hzoom{position:absolute;right:8px;top:8px;background:rgba(19,20,22,.72);color:#fff;font-size:var(--fs-s);font-weight:700;padding:3px 8px;border-radius:var(--r-s);opacity:0;transition:opacity .12s}
 .hcard:hover .hzoom,.hframe-btn:focus-visible .hzoom{opacity:1}
 .hold-judge{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border:0;border-radius:var(--r-m);background:var(--sunk)}
+/* 원인 고르기: 사람 판정이 단절·좁아짐일 때. 고른 원인은 채운 칩 */
+.cause-pick{display:flex;flex-direction:column;gap:8px;padding-top:10px;border-top:1px solid var(--line)}
+.cause-pick-label{margin:0;font-size:var(--fs-m);font-weight:700;color:var(--ink)}
+.cause-pick-label span{margin-left:6px;font-size:var(--fs-s);font-weight:400;color:var(--muted)}
+.cause-chips{display:flex;flex-wrap:wrap;gap:6px}
+.cause-chip{min-height:36px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:var(--surface);font:inherit;font-size:var(--fs-m);font-weight:600;color:var(--ink);cursor:pointer}
+.cause-chip:hover{background:var(--accent-soft)}
+.cause-chip.on{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
+.cause-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.cause-fixed{display:block;margin-top:2px;font-size:var(--fs-s);font-weight:600;color:var(--muted)}
+.cause-need{display:inline-block;margin-top:6px;padding:2px 10px;border-radius:999px;background:var(--accent-soft);font-size:var(--fs-s);font-weight:700;color:var(--accent-text)}
 /* 사람 판정 버튼: 목록·배지와 같은 판정 색 (옅은 배경 + 진한 글자) */
 /* 사람 판정: 세 칸이 붙은 한 묶음 (고르는 것). 글자를 판정 색으로(흰 바탕 4.5:1 이상), 올리면 그 판정의 옅은 색 */
 .judge-group{display:inline-flex;align-items:stretch;height:40px;border:1px solid var(--line);border-radius:var(--r-m);background:var(--surface);overflow:hidden}
