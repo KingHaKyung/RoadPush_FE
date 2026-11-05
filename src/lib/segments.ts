@@ -43,6 +43,7 @@ export const addDays = (s: string, n: number) => ymd(new Date(dayStart(s) + n * 
 export const defaultRange = (now = DEMO_NOW): DateRange => ({ from: addDays(ymd(now), -29), to: ymd(now) });
 /** 기간의 [시작, 끝) 시각. range의 끝은 마지막 날 다음 0시 */
 export function periodBounds(f: Pick<Filters, 'period' | 'range'>, now = DEMO_NOW): [number, number] {
+  if (f.period === 'all') return [-Infinity, Infinity];
   if (f.period === 'today') { const s = dayStart(ymd(now)); return [s, s + DAY_MS]; }
   if (f.period === '3d') return [now.getTime() - 72 * 36e5, now.getTime() + 1];
   return [dayStart(f.range.from), dayStart(f.range.to) + DAY_MS];

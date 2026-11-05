@@ -20,7 +20,7 @@ export default function App() {
   const { observations, update, error, loaded, retry } = useObservations();
   if (devFlag('crash')) throw new Error('개발용 화면 오류 (?crash=1)');
   const [tab, setTab] = useState<Tab>(readTab);
-  const [filters, setFilters] = useState<Filters>({ period: '3d', range: defaultRange(), src: new Set(['cctv', 'car', 'upload']), pass: new Set(PASS_KEYS), act: new Set(ACTIONS), q: '', sort: 'time', dept: '' });
+  const [filters, setFilters] = useState<Filters>({ period: 'all', range: defaultRange(), src: new Set(['cctv', 'car', 'upload']), pass: new Set(PASS_KEYS), act: new Set(ACTIONS), q: '', sort: 'time', dept: '' });
   const [selSeg, setSelSeg] = useState<string | null>(null);
   const [selObs, setSelObs] = useState<string | null>(null);
   const [focusKey, setFocusKey] = useState(0);
