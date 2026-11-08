@@ -694,6 +694,12 @@ main h1:focus{outline:none;box-shadow:none}
 /* KRDS 칩의 체크 표시: KRDS도 important라 더 구체적인 선택자로 끈다 (흰 바탕만으로 구분) */
 .toolbar .chip-group .krds-form-chip input[type="radio"] ~ label.krds-form-chip-outline::before,
 .toolbar .chip-group .krds-form-chip input[type="radio"]:checked ~ label.krds-form-chip-outline::before{display:none!important}
+/* 휴대폰: 기간 칩 넷이 화면 안에 들어오게 폭을 나눠 쓴다 */
+@media (max-width:760px){
+  .toolbar .chip-group{width:100%}
+  .toolbar .chip-group .krds-form-chip{flex:1 1 auto}
+  .toolbar .chip-group .krds-form-chip .krds-form-chip-outline{width:100%;justify-content:center;padding:0 4px}
+}
 /* 위험 지도 '우선 점검 지점' 검색·정렬도 같은 입력 모양 */
 .qtools .krds-input,.qtools .krds-form-select-sort{height:40px;border:1px solid transparent;border-radius:var(--r-m);background-color:var(--sunk);font-size:var(--fs-m);color:var(--ink)}
 .qtools .krds-form-select-sort{padding:0 36px 0 14px;background-position:calc(100% - 12px) 50%;--krds-form-select-sorting--color-background:var(--sunk);--krds-form-select-sorting--color-background-hover:var(--sunk);--krds-form-select-sorting--color-background-pressed:var(--surface)}
@@ -703,7 +709,7 @@ main h1:focus{outline:none;box-shadow:none}
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23666981' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='m11 11 3.5 3.5'/%3E%3C/svg%3E")}
 /* 위험 지도 왼쪽 필터도 같은 모양: 기간은 구간 선택, 부서는 옅은 바탕 선택 상자 */
 .filters .krds-form-select{height:40px;border-radius:var(--r-m);font-size:var(--fs-m);--krds-form-select--color-background:var(--sunk);--krds-form-select--color-border:transparent;--krds-form-select--color-border-active:var(--accent)}
-.filters .chip-group{flex-wrap:nowrap;gap:2px;height:40px;padding:3px;border-radius:var(--r-m);background:var(--sunk);align-items:center}
+.filters .chip-group{display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:3px;border-radius:var(--r-m);background:var(--sunk);align-items:center}
 .filters .chip-group .krds-form-chip{flex:1}
 .filters .chip-group .krds-form-chip .krds-form-chip-outline{width:100%;justify-content:center;height:34px;min-height:0;padding:0 6px;white-space:nowrap;border:0;border-radius:8px;background:transparent;color:var(--muted);font-size:var(--fs-m);font-weight:500;box-shadow:none}
 .filters .chip-group .krds-form-chip input:checked + .krds-form-chip-outline{background:var(--surface);color:var(--ink);font-weight:700;box-shadow:0 1px 3px rgba(40,42,90,.14)}

@@ -17,9 +17,7 @@ export const siteCounts = (k: KpiKey, s: Pin) =>
 const H = 36e5;
 /** 기간을 n칸으로 나눠 칸마다 관측 수 (오늘 24시간, 최근 3일 72시간, 고른 기간은 지금까지). 수집 경로 필터 반영 */
 export function trend(obs: Observation[], f: Filters, pred: Pred, n = 12, now = DEMO_NOW): number[] {
-  const [from, until] = periodBounds(f, now);
-  // 전체: 가장 먼저 들어온 관측부터
-  const start = f.period === 'all' ? Math.min(now.getTime(), ...obs.map(obsTime)) : from;
+  const [start, until] = periodBounds(f, now);
   // 오늘·고른 기간은 아직 오지 않은 시간을 빼고 지금까지만
   const end = Math.min(until, now.getTime());
   const span = Math.max(H, end - start);
@@ -51,4 +49,4 @@ export function dayDelta(obs: Observation[], f: Filters, pred: Pred, now = DEMO_
 }
 
 /** 기간 이름 + 추세 칸 크기 */
-export const spanLabel = (f: Filters) => (f.period === 'all' ? '전체 기간' : f.period === 'today' ? '오늘 · 2시간 단위' : f.period === '3d' ? '최근 3일 · 6시간 단위' : `${f.range.from} ~ ${f.range.to}`);
+export const spanLabel = (f: Filters) => (f.period === 'today' ? '오늘 · 2시간 단위' : f.period === '3d' ? '최근 3일 · 6시간 단위' : f.period === '3m' ? '최근 3개월' : `${f.range.from} ~ ${f.range.to}`);

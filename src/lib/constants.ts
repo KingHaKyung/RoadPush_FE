@@ -51,7 +51,7 @@ export const ROUTES: Record<string, Route> = {
 };
 /** 원인마다 처리 경로 (같은 원인은 한 번만, 모르는 원인은 뺀다) */
 export const routesOf = (causes: string[]): Route[] => [...new Set(causes)].flatMap((c) => (ROUTES[c] ? [ROUTES[c]] : []));
-export const PERIOD_LABEL: Record<Period, string> = { all: '전체', today: '오늘', '3d': '최근 3일', range: '기간 선택' };
+export const PERIOD_LABEL: Record<Period, string> = { today: '오늘', '3d': '최근 3일', '3m': '최근 3개월', range: '기간 선택' };
 export const SORT_LABEL: Record<SortKey, string> = { time: '최근 접수순', area: '행정구역 이름순', risk: '위험도순' };
 /** 수집 경로 필터를 보일지. MVP는 시민 제보(직접 업로드)만 받아 끈다. CCTV·단속차량을 붙이면 true */
 export const SHOW_SOURCES = false;

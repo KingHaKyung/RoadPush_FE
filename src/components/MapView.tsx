@@ -153,15 +153,15 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
   const sites = useMemo(() => pinsOf(obs, { ...f, pass: new Set(PASS_KEYS), act: new Set(ACTIONS) }), [obs, f]);
   const pins = useMemo(() => pinsOf(obs, f), [obs, f]);
   const cnt = (p: Pass) => sites.filter((s) => s.pass === p).length;
-  /** 기본(기간 전체·판정·처리 상태·수집 경로 전체·부서 전체·검색어 없음)과 다른 조건 수 */
-  const nCond = [f.period !== 'all', f.pass.size !== PASS_KEYS.length, f.act.size !== ACTIONS.length, f.src.size !== 3, !!f.dept, !!f.q.trim()].filter(Boolean).length;
+  /** 기본(최근 3개월·판정·처리 상태·수집 경로 전체·부서 전체·검색어 없음)과 다른 조건 수 */
+  const nCond = [f.period !== '3m', f.pass.size !== PASS_KEYS.length, f.act.size !== ACTIONS.length, f.src.size !== 3, !!f.dept, !!f.q.trim()].filter(Boolean).length;
   // 수집 경로도 판정·처리 상태와 같은 '지점' 단위로 센다 (전에는 사진 장수라 숫자가 맞지 않았다). 지점의 최근 관측이 들어온 경로
   const allSrc = useMemo(() => pinsOf(obs, { ...f, pass: new Set(PASS_KEYS), act: new Set(ACTIONS), src: new Set<Source>(['cctv', 'car', 'upload']) }), [obs, f]);
   /** 지도에 찍을 지점이 없을 때: 기간 안에 관측은 있는데 조건에 걸렸는지, 기간 안에 아예 없는지 */
   const periodHasSites = useMemo(() => !pins.length && pinsOf(obs, { ...f, q: '', dept: '', pass: new Set(PASS_KEYS), act: new Set(ACTIONS), src: new Set<Source>(['cctv', 'car', 'upload']) }).length > 0, [obs, f, pins.length]);
   const resetConds = () => setFilters({ ...f, q: '', dept: '', pass: new Set(PASS_KEYS), act: new Set(ACTIONS), src: new Set<Source>(['cctv', 'car', 'upload']) });
-  const widen = () => setFilters({ ...f, period: 'range', range: { from: addDays(ymd(DEMO_NOW), -(RANGE_MAX_DAYS - 1)), to: ymd(DEMO_NOW) } });
-  const periodText = f.period === 'all' ? '아직' : f.period === 'today' ? '오늘' : f.period === '3d' ? '최근 3일 동안' : `${f.range.from} ~ ${f.range.to} 동안`;
+  const widen = () => setFilters({ ...f, period: '3m' });
+  const periodText = f.period === '3m' ? '최근 3개월 동안' : f.period === 'today' ? '오늘' : f.period === '3d' ? '최근 3일 동안' : `${f.range.from} ~ ${f.range.to} 동안`;
 
   const toggle = <K extends 'pass' | 'act' | 'src'>(key: K, v: string, on: boolean) => {
     const s = new Set(f[key] as Set<string>);
@@ -296,8 +296,8 @@ export function MapView({ obs, filters: f, setFilters, selSeg, selObs, focusKey,
             {periodHasSites ? (
               <EmptyState kind="search" small title="조건에 맞는 지점이 없습니다" desc="판정·처리 상태·부서·검색어 조건을 풀면 지점이 다시 보입니다." action={{ label: '조건 초기화', onClick: resetConds }} />
             ) : (
-              <EmptyState kind="map" small title={`${periodText} 들어온 관측이 없습니다`} desc={f.period === 'all' ? '시민 제보가 들어오면 지도에 표시합니다.' : '기간을 넓히면 이전 관측을 지도에 표시합니다.'}
-                action={f.period === 'all' || f.period === 'range' && f.range.from <= addDays(ymd(DEMO_NOW), -(RANGE_MAX_DAYS - 1)) ? undefined : { label: '최근 3개월 보기', onClick: widen }} />
+              <EmptyState kind="map" small title={`${periodText} 들어온 관측이 없습니다`} desc={f.period === '3m' ? '시민 제보가 들어오면 지도에 표시합니다.' : '기간을 넓히면 이전 관측을 지도에 표시합니다.'}
+                action={f.period === '3m' || f.period === 'range' && f.range.from <= addDays(ymd(DEMO_NOW), -(RANGE_MAX_DAYS - 1)) ? undefined : { label: '최근 3개월 보기', onClick: widen }} />
             )}
           </div>
         )}

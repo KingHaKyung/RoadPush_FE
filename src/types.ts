@@ -33,7 +33,7 @@ export type Condition = 'night' | 'rain' | 'occluded' | 'mixed'
   | 'boundary_review' | 'boundary_failed' | 'surface_uncertain' | 'occupancy_unverified' | 'low_coverage';
 export type Review = '미검수' | '확인' | '수정';
 /** range: 직접 고른 기간 (Filters.range, 최대 RANGE_MAX_DAYS일) */
-export type Period = 'all' | 'today' | '3d' | 'range';
+export type Period = 'today' | '3d' | '3m' | 'range';
 /** 날짜 'YYYY-MM-DD' (화면 시간대 기준, 양 끝 포함) */
 export interface DateRange { from: string; to: string }
 /** 정렬: 날짜(최신순) · 행정구역 이름(가나다순) · 위험도(높은 순) */
