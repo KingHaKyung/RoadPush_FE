@@ -4,11 +4,11 @@ import { addDays, dayStart, defaultRange, RANGE_MAX_DAYS, ymd } from '../lib/seg
 import type { DateRange, Filters, Period } from '../types';
 import { ChipGroup } from './ChipGroup';
 
-const OPTS: [Period, string][] = [['today', '오늘'], ['3d', '최근 3일'], ['range', '기간 선택']];
+const OPTS: [Period, string][] = [['today', '오늘'], ['3d', '최근 3일'], ['3m', '최근 3개월'], ['range', '기간 선택']];
 const DAYS = (r: DateRange) => Math.round((dayStart(r.to) - dayStart(r.from)) / 864e5) + 1;
 
 /**
- * 기간: 오늘 · 최근 3일 · 기간 선택. 기간 선택이면 시작일~종료일 (오늘까지, 최대 RANGE_MAX_DAYS일).
+ * 기간: 오늘 · 최근 3일 · 최근 3개월 · 기간 선택. 기간 선택이면 시작일~종료일 (오늘까지, 최대 RANGE_MAX_DAYS일).
  * 한쪽을 바꿔 최대 길이를 넘으면 다른 쪽을 끌어온다
  */
 export function PeriodToggle({ f, onChange }: { f: Pick<Filters, 'period' | 'range'>; onChange: (p: Pick<Filters, 'period' | 'range'>) => void }) {

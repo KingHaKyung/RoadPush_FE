@@ -49,4 +49,4 @@ export function dayDelta(obs: Observation[], f: Filters, pred: Pred, now = DEMO_
 }
 
 /** 기간 이름 + 추세 칸 크기 */
-export const spanLabel = (f: Filters) => (f.period === 'today' ? '오늘 · 2시간 단위' : f.period === '3d' ? '최근 3일 · 6시간 단위' : `${f.range.from} ~ ${f.range.to}`);
+export const spanLabel = (f: Filters) => (f.period === 'today' ? '오늘 · 2시간 단위' : f.period === '3d' ? '최근 3일 · 6시간 단위' : f.period === '3m' ? '최근 3개월' : `${f.range.from} ~ ${f.range.to}`);

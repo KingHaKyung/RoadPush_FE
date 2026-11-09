@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { ACTIONS, DEMO_NOW, DEPTS, PASS, PASS_KEYS, PERIOD_LABEL, routeName, SORT_LABEL, SRC_LABEL, SHOW_SOURCES } from '../lib/constants';
+import { ACTIONS, DEPTS, PASS, PASS_KEYS, PERIOD_LABEL, routeName, SORT_LABEL, SRC_LABEL, SHOW_SOURCES } from '../lib/constants';
 import { fmtTime } from '../lib/format';
-import { addDays, capturedEarlier, compareObs, effPass, inPeriod, matchesFilters, matchesQuery, RANGE_MAX_DAYS, ymd } from '../lib/segments';
+import { capturedEarlier, compareObs, effPass, inPeriod, matchesFilters, matchesQuery } from '../lib/segments';
 import { dayDelta, trend } from '../lib/stats';
 import type { Action, Filters, Observation, ObservationPatch, Pass, Route, SortKey } from '../types';
 import { KpiCard } from './Dashboard';
@@ -61,9 +61,9 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
   const [reportOpen, setReportOpen] = useState(false);
   const [bulkDept, setBulkDept] = useState('');
   const [bulkAct, setBulkAct] = useState('');
-  /** 휴대폰에서 기간·판정·처리 상태·부서·정렬을 펼쳤는지. 기본(최근 3일·전체·날짜순)과 다른 조건 수를 버튼에 보여 준다 */
+  /** 휴대폰에서 기간·판정·처리 상태·부서·정렬을 펼쳤는지. 기본(최근 3개월·판정 전체·날짜순)과 다른 조건 수를 버튼에 보여 준다 */
   const [moreOpen, setMoreOpen] = useState(false);
-  const nCond = [f.period !== '3d', f.pass.size === 1, f.act.size === 1, !!f.dept, f.sort !== 'time'].filter(Boolean).length;
+  const nCond = [f.period !== '3m', f.pass.size === 1, f.act.size === 1, !!f.dept, f.sort !== 'time'].filter(Boolean).length;
   /** 정렬 방향을 기본(최신·위험 높은 순, 행정구역은 가나다순)에서 뒤집었는지 */
   const [flip, setFlip] = useState(false);
   const sorted = obs.filter((o) => matchesFilters(o, f)).sort(compareObs(f.sort));
@@ -146,9 +146,11 @@ export function ListView({ obs, filters: f, setFilters, onOpen, onUpdate, toast 
   ) : f.q.trim() ? (
     <EmptyState kind="search" title={`'${f.q.trim()}'에 맞는 관측이 없습니다`} desc="위치·행정구역·장비 이름이나 관측 ID로 찾아보세요."
       action={{ label: '검색어 지우기', onClick: () => setFilters({ ...f, q: '' }) }} />
+  ) : f.period === '3m' ? (
+    <EmptyState kind="empty" title="최근 3개월 동안 들어온 관측이 없습니다" desc="시민 제보가 들어오면 여기에 쌓입니다." />
   ) : f.period !== 'range' ? (
     <EmptyState kind="empty" title={`${f.period === 'today' ? '오늘' : '최근 3일 동안'} 들어온 관측이 없습니다`} desc="기간을 넓히면 이전에 들어온 관측을 볼 수 있습니다."
-      action={{ label: '최근 3개월 보기', onClick: () => setFilters({ ...f, period: 'range', range: { from: addDays(ymd(DEMO_NOW), -(RANGE_MAX_DAYS - 1)), to: ymd(DEMO_NOW) } }) }} />
+      action={{ label: '최근 3개월 보기', onClick: () => setFilters({ ...f, period: '3m' }) }} />
   ) : (
     <EmptyState kind="empty" title={`${f.range.from} ~ ${f.range.to} 동안 들어온 관측이 없습니다`} desc="기간을 바꿔 보세요. 최대 3개월까지 고를 수 있습니다." />
   );
